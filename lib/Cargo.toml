@@ -1,0 +1,10 @@
+[package]
+name = "paperwallet_lib"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bip0039 = "0.12.0"
+zcash_client_backend = { version = "0.7.0", features = ["transparent-inputs"] }
+zcash_primitives = "0.10.0"
+orchard = "0.3"
