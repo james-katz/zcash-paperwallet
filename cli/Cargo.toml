@@ -1,0 +1,8 @@
+[package]
+name = "zcash-paperwallet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.21", features = ["derive"] }
+paperwallet_lib = { path = "../lib" }

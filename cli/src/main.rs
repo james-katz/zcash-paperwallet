@@ -78,7 +78,7 @@ fn main() {
         println!("Recovery phrase: \n{}\n", sf);
     
         let ufvk = pw.get_ufvk();
-        println!("Unfied Full Viewing Key: \n{}\n", ufvk);
+        println!("Unified Full Viewing Key: \n{}\n", ufvk);
     
         let oa = pw.get_unified_address(args.exclude.clone().unwrap_or_default());
         println!("Unified Address:\n{}", oa);
@@ -89,6 +89,4 @@ fn main() {
 
         count += 1;
     }
-
 }
-
