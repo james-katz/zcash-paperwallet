@@ -1,6 +1,6 @@
 use paperwallet_lib::paper::PaperWallet;
-
 use clap::Parser;
+use rayon::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -58,35 +58,36 @@ fn main() {
         }        
     }
 
-    let mut count = 1;
-    loop {
-        if count > num_wallets {
-            break;
-        }
+    // Use a parallel iterator to generate the wallets
+    let wallets: Vec<PaperWallet> = (1..=num_wallets)
+        .into_par_iter()
+        .map(|_| {
+            PaperWallet::new(&network, None).unwrap_or_else(|e| {
+                println!("Error creating wallet: {:?}", e);
+                std::process::exit(1);
+            })
+        })
+        .collect();
+
+    for (index, wallet) in wallets.into_iter().enumerate() {
+        let count = index + 1;
 
         if num_wallets > 1 {
             println!("Wallet number {}", count);
             println!("----------------------------------------");
         }
-
-        let pw = PaperWallet::new(&network, None).unwrap_or_else(|e| {
-            println!("Error creating wallet: {:?}", e);
-            std::process::exit(1);
-        });
     
-        let sf = pw.get_seed_phrase();
+        let sf = wallet.get_seed_phrase();
         println!("Recovery phrase: \n{}\n", sf);
     
-        let ufvk = pw.get_ufvk();
+        let ufvk = wallet.get_ufvk();
         println!("Unified Full Viewing Key: \n{}\n", ufvk);
     
-        let oa = pw.get_unified_address(args.exclude.clone().unwrap_or_default());
+        let oa = wallet.get_unified_address(args.exclude.clone().unwrap_or_default());
         println!("Unified Address:\n{}", oa);
 
         if num_wallets > 1 && count < num_wallets {
             println!("\n========================================\n");
         }
-
-        count += 1;
     }
 }
