@@ -6,7 +6,7 @@ use rayon::prelude::*;
 #[command(author, version, about)]
 /// Modern Zcash Paper Wallet generator with Unified Address support
 struct Args {   
-    #[arg(short, long)]
+    #[arg(long)]
     /// Number of wallets to generate
     num_wallets: Option<usize>,
     #[arg(long)]
@@ -14,7 +14,10 @@ struct Args {
     network: Option<String>,
     #[arg(short, long, value_delimiter = ',')]
     /// Exclude receivers, comma separated (transparent,sapling,orchard)
-    exclude: Option<Vec<String>>
+    exclude: Option<Vec<String>>,
+    #[arg(short, long)]
+    /// Display a rough estimation of wallet birthday
+    birthday: bool
 }
 
 fn main() {            
@@ -59,7 +62,7 @@ fn main() {
     }
 
     // Use a parallel iterator to generate the wallets
-    let wallets: Vec<PaperWallet> = (1..=num_wallets)
+    let wallets: Vec<PaperWallet> = (0..num_wallets)
         .into_par_iter()
         .map(|_| {
             PaperWallet::new(&network, None).unwrap_or_else(|e| {
@@ -79,6 +82,11 @@ fn main() {
     
         let sf = wallet.get_seed_phrase();
         println!("Recovery phrase: \n{}\n", sf);
+
+        if args.birthday {
+            let birthday = wallet.get_estimated_birthday();
+            println!("Wallet birthday: \n{}\n", birthday);
+        }
     
         let ufvk = wallet.get_ufvk();
         println!("Unified Full Viewing Key: \n{}\n", ufvk);
