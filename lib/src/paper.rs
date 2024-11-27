@@ -93,7 +93,7 @@ impl PaperWallet {
        
         let additional_blocks = (elapsed_seconds / BLOCK_INTERVAL_SECONDS) as u32;
         
-        (nu6_height + additional_blocks) - 9000
+        (nu6_height + additional_blocks) - 1000
     }
 
     pub fn get_seed_phrase(&self) -> &str {
@@ -112,8 +112,7 @@ impl PaperWallet {
     }
 
     // pub fn get_tex_address(&self) -> String {
-    //     let t_address = self.get_transparent_address();    
-        
+    //     let t_address = self.get_transparent_address();            
     // }
 
     pub fn get_sapling_address(&self) -> String {
@@ -125,49 +124,13 @@ impl PaperWallet {
 
     pub fn get_orchard_address(&self) -> String {
         let orchard_address = &self.orchard;
-        // let orchard_address = UnifiedAddress::from_receivers(Some(a), None, None).unwrap();
-        // orchard_address.encode(&self.network)
         orchard_address.encode(&self.network)
     }
 
-    pub fn get_unified_address(&self, exclude: Vec<String>) -> String {
-        // let sapling_address = if exclude.contains(&"sapling".to_string()) {
-        //     None
-        // } else {
-        //     Some(self.sapling_address)
-        // };
-    
-        // let t_address = if exclude.contains(&"transparent".to_string()) {
-        //     None
-        // } else {
-        //     Some(self.transparent_address)
-        // };
-    
-        // let orchard = if exclude.contains(&"orchard".to_string()) {
-        //     None
-        // } else {
-        //     Some(self.orchard)
-        // };
-
-        // let ua = UnifiedAddress::from_receivers(orchard, sapling_address, t_address).expect("Failed to create Unified Address");
-        // ua.encode(&self.network)
-        let has_sapling = if exclude.contains(&"sapling".to_string()) {
-            false
-        } else {
-            true
-        };
-    
-        let has_transparent = if exclude.contains(&"transparent".to_string()) {
-            false
-        } else {
-            true
-        };
-    
-        let has_orchard = if exclude.contains(&"orchard".to_string()) {
-            false
-        } else {
-            true
-        };
+    pub fn get_unified_address(&self, exclude: Vec<String>) -> String {        
+        let has_sapling = !exclude.contains(&"sapling".to_string());
+        let has_transparent = !exclude.contains(&"transparent".to_string());
+        let has_orchard = !exclude.contains(&"orchard".to_string());
 
         let (ua, _) = &self.ufvk
             .default_address(UnifiedAddressRequest::new(has_orchard, has_sapling, has_transparent).expect("Invalid UnifiedAddressRequest"))
