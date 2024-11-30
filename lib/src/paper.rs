@@ -83,9 +83,18 @@ impl PaperWallet {
         })
     }
 
+    pub fn from_entropy(net: &str, bytes: Vec<u8>) -> Result<PaperWallet, Box<dyn Error>> {
+        let seed = <Mnemonic<English>>::from_entropy(bytes).expect("Invalid entropy bytes");
+        let seed_phrase = seed.to_string();
+        PaperWallet::new(&net, Some(&seed_phrase))
+    }
+
     fn estimate_brithday(network: &Network) -> BlockHeight {                
         let nu6_height = network.activation_height(NetworkUpgrade::Nu6).unwrap();
-        let nu6_date = Utc.with_ymd_and_hms(2024, 11, 23, 0, 0, 0);
+        let nu6_date = match network {
+            Network::MainNetwork => Utc.with_ymd_and_hms(2024, 11, 23, 0, 0, 0),
+            _ => Utc.with_ymd_and_hms(2024, 8, 28, 0, 0, 0)
+        };
         let current_date = Utc::now();
 
         let duration = current_date.signed_duration_since(nu6_date.unwrap());
@@ -146,7 +155,6 @@ impl PaperWallet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bip0039::{Mnemonic, English};
 
     #[test]
     fn test_generate_wallet() {        
@@ -160,10 +168,8 @@ mod tests {
         let seed_entropy = vec![
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
         ];
-        let mnemonic = <Mnemonic<English>>::from_entropy(seed_entropy.clone()).unwrap();
-        let phrase = mnemonic.phrase().to_string();         
-
-        let wallet = PaperWallet::new("main", Some(&phrase)).unwrap();
+        
+        let wallet = PaperWallet::from_entropy("main", seed_entropy).unwrap();
         
         // Test entropy to mnemonic phrase
         assert_eq!(wallet.get_seed_phrase(), "abandon amount liar amount expire adjust cage candy arch gather drum bullet absurd math era live bid rhythm alien crouch range attend journey unaware".to_string());
