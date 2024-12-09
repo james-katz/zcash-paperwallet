@@ -9,3 +9,6 @@ zcash_client_backend = { version = "0.15.0", features = ["transparent-inputs", "
 zcash_primitives = { version = "0.20.0", features = ["transparent-inputs"] }
 sapling = { package = "sapling-crypto", version = "0.3", default-features = false }
 chrono = "0.4"
+printpdf = "0.7.0"
+textwrap = "0.16.1"
+qrcode = "0.14.1"

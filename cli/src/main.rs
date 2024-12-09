@@ -1,4 +1,8 @@
+use std::path::Path;
+
 use paperwallet_lib::paper::PaperWallet;
+use paperwallet_lib::pdf::generate_and_save_pdf;
+
 use clap::Parser;
 use rayon::prelude::*;
 
@@ -17,7 +21,10 @@ struct Args {
     exclude: Option<Vec<String>>,
     #[arg(short, long)]
     /// Display a rough estimation of wallet birthday
-    birthday: bool
+    birthday: bool,
+    #[arg(short, long)]
+    /// Save generated wallets to file. File type will be guesses from extension. Avaialable formats: [.pdf]
+    filename: Option<String>
 }
 
 fn main() {            
@@ -65,17 +72,37 @@ fn main() {
     let wallets: Vec<PaperWallet> = (0..num_wallets)
         .into_par_iter()
         .map(|_| {
-            PaperWallet::new(&network, None).unwrap_or_else(|e| {
+            PaperWallet::new(&network, None, None).unwrap_or_else(|e| {
                 println!("Error creating wallet: {:?}", e);
                 std::process::exit(1);
             })
         })
         .collect();
+    
+    if let Some(filename) = &args.filename {
+        let path = Path::new(filename);
+        match path.extension().and_then(|ext| ext.to_str()) {
+            Some("pdf") => {
+                match generate_and_save_pdf(&wallets, args.exclude, path.to_str().unwrap()) {
+                    Ok(f) => println!("PDF file saved: {}", f),
+                    _ => println!("Error saving the PDF file to disk.")
+                };
+            },
+            _ => println!("Output format not supported.")
+        }
+    }
+    else {
+        print_wallets_to_stdout(wallets, args)
+    }
+}
+
+fn print_wallets_to_stdout(wallets: Vec<PaperWallet>, args:Args) {
+    let wallets_num = wallets.len();
 
     for (index, wallet) in wallets.into_iter().enumerate() {
         let count = index + 1;
 
-        if num_wallets > 1 {
+        if wallets_num > 1 {
             println!("Wallet number {}", count);
             println!("----------------------------------------");
         }
@@ -91,11 +118,11 @@ fn main() {
         let ufvk = wallet.get_ufvk();
         println!("Unified Full Viewing Key: \n{}\n", ufvk);
     
-        let oa = wallet.get_unified_address(args.exclude.clone().unwrap_or_default());
-        println!("Unified Address:\n{}", oa);
+        let ua = wallet.get_unified_address(args.exclude.clone().unwrap_or_default());
+        println!("Unified Address:\n{}", ua);
 
-        if num_wallets > 1 && count < num_wallets {
+        if wallets_num > 1 && count < wallets_num {
             println!("\n========================================\n");
-        }
+        }        
     }
 }

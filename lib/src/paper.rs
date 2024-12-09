@@ -10,6 +10,8 @@ use zcash_client_backend::address::UnifiedAddress;
 use zcash_primitives::legacy::TransparentAddress;
 use sapling::PaymentAddress;
 
+// use crate::pdf::generate_and_save_pdf;
+
 use chrono::{Utc, TimeZone};
 
 use std::error::Error;
@@ -28,7 +30,7 @@ pub struct PaperWallet {
 
 impl PaperWallet {
     /// Creates a new paper wallet for the specified network, initializing keys and addresses.
-    pub fn new(net: &str, phrase: Option<&str>) -> Result<PaperWallet, Box<dyn Error>> {
+    pub fn new(net: &str, phrase: Option<&str>, root_seed: Option<Vec<u8>>) -> Result<PaperWallet, Box<dyn Error>> {
         let network = match net {
             "main" => Network::MainNetwork,
             _ => Network::TestNetwork
@@ -42,8 +44,13 @@ impl PaperWallet {
             <Mnemonic<English>>::generate(Count::Words24)
         };     
 
-        let seed_phrase = mnemonic.phrase().to_string();  
-        let seed = mnemonic.to_seed("");
+        let mut seed_phrase = mnemonic.phrase().to_string();  
+        let seed = if let Some(root_seed) = root_seed {
+            seed_phrase = "Wallet initialized from seed does't contain a mnemonic phrase.".to_string();
+            root_seed
+        } else {
+            mnemonic.to_seed("").to_vec()
+        };
     
         // Derive the Zcash unified spending key and unified full viewing key
         let usk = UnifiedSpendingKey::from_seed(&network, &seed, AccountId::default())
@@ -86,7 +93,11 @@ impl PaperWallet {
     pub fn from_entropy(net: &str, bytes: Vec<u8>) -> Result<PaperWallet, Box<dyn Error>> {
         let seed = <Mnemonic<English>>::from_entropy(bytes).expect("Invalid entropy bytes");
         let seed_phrase = seed.to_string();
-        PaperWallet::new(&net, Some(&seed_phrase))
+        PaperWallet::new(&net, Some(&seed_phrase), None)
+    }
+
+    pub fn from_seed(net: &str, bytes: Vec<u8>) -> Result<PaperWallet, Box<dyn Error>> {
+        PaperWallet::new(&net, None, Some(bytes))
     }
 
     fn estimate_brithday(network: &Network) -> BlockHeight {                
@@ -158,19 +169,19 @@ mod tests {
 
     #[test]
     fn test_generate_wallet() {        
-        let wallet = PaperWallet::new("main", None);
+        let wallet = PaperWallet::new("main", None, None);
         assert!(wallet.is_ok(), "PaperWallet creation failed.");       
         assert!(!wallet.unwrap().seed_phrase.is_empty(), "PaperWallet creation failed: No mnemoic phrase.");       
     }
 
     #[test]
-    fn test_generate_wallet_from_seed() {
+    fn test_generate_wallet_from_entropy() {
         let seed_entropy = vec![
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
         ];
         
-        let wallet = PaperWallet::from_entropy("main", seed_entropy).unwrap();
-        
+        let wallet = PaperWallet::from_entropy("main", seed_entropy.clone()).unwrap();
+
         // Test entropy to mnemonic phrase
         assert_eq!(wallet.get_seed_phrase(), "abandon amount liar amount expire adjust cage candy arch gather drum bullet absurd math era live bid rhythm alien crouch range attend journey unaware".to_string());
 
@@ -197,5 +208,15 @@ mod tests {
 
         // Test unified address (transparent + sapling + orchard)
         assert_eq!(wallet.get_unified_address(vec![]), "u1c4hdrd30vk58pxhjjycnexps7jnqk4h0hk6r3kxvrpz8gllsdnlvm63vpaeuvek5ygnjxnq54df7xuxzce4jeq2kx0vx32g8a2f9mu6twkcf4nzey2ps93z75th2z6jm2etd2ynaky2kjmj60hstk094ufptx6efgpqfy4y9n0e2c5kfgezxh6akn5cd558800xy080u0jy6vvvw9yp");
+    }
+
+    #[test]
+    fn test_generate_wallet_from_root_seed() {
+        let root_seed = vec![
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+        ];
+
+        let wallet = PaperWallet::from_seed("main", root_seed).unwrap();
+        assert_eq!(wallet.get_unified_address(vec![]), "u1m2p65qdnhexpfcmejjf6hjqd485xwfsrlf3cvc6wx5xhwrcq8myrdlqyhdpklz5d87ct0epfty0cr9d6q9fqtycx0j3vdhc2tzmkeejhtdqj3zrjqk3dd5ufpqkmueg89e6a6alvpaaxcx4fxsxqk4yj7g8dayn94d3afrsx66m3vq4rk03hc0ufmtkcm8wca7xja42f9kjau9708z7");
     }
 }
