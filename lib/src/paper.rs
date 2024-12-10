@@ -165,7 +165,8 @@ impl PaperWallet {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::*;    
+    use crate::test_vectors::ua::get_ua_test_vectors;
 
     #[test]
     fn test_generate_wallet() {        
@@ -212,11 +213,25 @@ mod tests {
 
     #[test]
     fn test_generate_wallet_from_root_seed() {
-        let root_seed = vec![
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
-        ];
+        let ua_test = get_ua_test_vectors();
+        for ua in ua_test {
+            let root_seed = ua.root_seed;
+            let has_transparent = ua.p2pkh_bytes.is_some();
+            let has_sapling = ua.sapling_raw_addr.is_some();
+            let has_orchard = ua.orchard_raw_addr.is_some();
+            let mut exclude: Vec<String> = vec![];
+            if !has_transparent {
+                exclude.push("transparent".to_string());
+            };
+            if !has_sapling {
+                exclude.push("sapling".to_string());
+            };
+            if !has_orchard {
+                exclude.push("orchard".to_string());
+            };
 
-        let wallet = PaperWallet::from_seed("main", root_seed).unwrap();
-        assert_eq!(wallet.get_unified_address(vec![]), "u1m2p65qdnhexpfcmejjf6hjqd485xwfsrlf3cvc6wx5xhwrcq8myrdlqyhdpklz5d87ct0epfty0cr9d6q9fqtycx0j3vdhc2tzmkeejhtdqj3zrjqk3dd5ufpqkmueg89e6a6alvpaaxcx4fxsxqk4yj7g8dayn94d3afrsx66m3vq4rk03hc0ufmtkcm8wca7xja42f9kjau9708z7");
+            let wallet = PaperWallet::from_seed("main", root_seed).unwrap();
+            assert_eq!(wallet.get_unified_address(exclude), ua.unified_addr);
+        }
     }
 }
