@@ -9,7 +9,7 @@ use qrcode::types::Color;
 
 use crate::paper::PaperWallet;
 
-pub fn generate_and_save_pdf(wallets: &Vec<PaperWallet>, exclude: Option<Vec<String>>, filename: &str) -> Result<String, Box<dyn Error>> {
+pub fn generate_and_save_pdf(wallets: &Vec<PaperWallet>, exclude: Option<Vec<String>>, include_birthday: bool, filename: &str) -> Result<String, Box<dyn Error>> {
     let (doc, page1, layer1) = PdfDocument::new("Zcash Paper Wallet", Mm(210.0), Mm(297.0), "Layer 1");    
     let font = doc.add_builtin_font(BuiltinFont::Courier)
         .map_err(|_| "Error loading built-in font")?;
@@ -39,10 +39,15 @@ pub fn generate_and_save_pdf(wallets: &Vec<PaperWallet>, exclude: Option<Vec<Str
         let ua = w.get_unified_address(exclude.clone().unwrap_or_default());
         let ufvk = w.get_ufvk();
         let seed = w.get_seed_phrase();
+        let birthday = if include_birthday {
+            Some(w.get_estimated_birthday())
+        } else {
+            None
+        };
 
         add_address_to_page(&current_layer, &font, &font_bold, ua.clone());
         add_ufvk_to_page(&current_layer, &font, &font_bold, ufvk.clone());
-        add_seed_to_page(&current_layer, &font, &font_bold, seed, ua.clone());
+        add_seed_to_page(&current_layer, &font, &font_bold, seed, ua.clone(), birthday);
         add_page_separator(&current_layer);
         pos = pos + 1;        
     }
@@ -86,11 +91,11 @@ fn add_ufvk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, f
     add_qrcode_image_to_page(current_layer, &scaledimg, finalsize, Mm(10.0), Mm(ypos-54.0));
 }
 
-fn add_seed_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, seed: &str, ua: String) {   
-    let ypos = 99.0 - 15.0;
+fn add_seed_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, seed: &str, ua: String, birthday: Option<u32>) {   
+    let ypos = 99.0 - 12.0;
    
     let (scaledimg, finalsize) = qrcode_scaled(seed, 13);
-    add_qrcode_image_to_page(current_layer, &scaledimg, finalsize, Mm(135.0), Mm(ypos-60.0));
+    add_qrcode_image_to_page(current_layer, &scaledimg, finalsize, Mm(135.0), Mm(ypos-65.0));
 
     current_layer.use_text("Mnemonic phrase", 14.0, Mm(10.0), Mm(ypos), &font_bold);
     
@@ -101,12 +106,18 @@ fn add_seed_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, f
     }
 
     // Add the address a second time below the mnemonic phrase
-    current_layer.use_text("Zcash Unified Address", 12.0, Mm(10.0), Mm(ypos-40.0), &font_bold);    
+    current_layer.use_text("Zcash Unified Address", 12.0, Mm(10.0), Mm(ypos-35.0), &font_bold);    
     let strs = wrap(&ua, 50);
     for (i, line) in strs.iter().enumerate() {
-        let y_position = ypos - 48.0 - (i as f32 * 4.0); // Adjust for line spacing
+        let y_position = ypos - 40.0 - (i as f32 * 4.0); // Adjust for line spacing
         current_layer.use_text(line.to_string(), 10.0, Mm(10.0), Mm(y_position), &font);
     }
+
+    // Add the wallet estimated birthday
+    if birthday.is_some() {
+        current_layer.use_text("Wallet birthday", 12.0, Mm(10.0), Mm(ypos-65.0), &font_bold);
+        current_layer.use_text(birthday.unwrap().to_string(), 10.0, Mm(10.0), Mm(ypos-72.0), &font);
+    }    
 }
 
 fn qrcode_scaled(data: &str, scalefactor: usize) -> (Vec<u8>, usize) {

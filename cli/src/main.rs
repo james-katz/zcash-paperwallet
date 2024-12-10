@@ -83,7 +83,7 @@ fn main() {
         let path = Path::new(filename);
         match path.extension().and_then(|ext| ext.to_str()) {
             Some("pdf") => {
-                match generate_and_save_pdf(&wallets, args.exclude, path.to_str().unwrap()) {
+                match generate_and_save_pdf(&wallets, args.exclude, args.birthday, filename) {
                     Ok(f) => println!("PDF file saved: {}", f),
                     _ => println!("Error saving the PDF file to disk.")
                 };
