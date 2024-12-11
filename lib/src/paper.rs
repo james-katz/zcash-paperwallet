@@ -172,7 +172,7 @@ mod tests {
     fn test_generate_wallet() {        
         let wallet = PaperWallet::new("main", None, None);
         assert!(wallet.is_ok(), "PaperWallet creation failed.");       
-        assert!(!wallet.unwrap().seed_phrase.is_empty(), "PaperWallet creation failed: No mnemoic phrase.");       
+        assert!(!wallet.unwrap().seed_phrase.is_empty(), "PaperWallet creation failed: No mnemonic phrase.");       
     }
 
     #[test]

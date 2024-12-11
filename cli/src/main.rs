@@ -2,6 +2,7 @@ use std::path::Path;
 
 use paperwallet_lib::paper::PaperWallet;
 use paperwallet_lib::pdf::generate_and_save_pdf;
+use paperwallet_lib::json::generate_and_save_json;
 
 use clap::Parser;
 use rayon::prelude::*;
@@ -23,7 +24,7 @@ struct Args {
     /// Display a rough estimation of wallet birthday
     birthday: bool,
     #[arg(short, long)]
-    /// Save generated wallets to file. File type will be guesses from extension. Avaialable formats: [.pdf]
+    /// Save generated wallets to file. File type will be guesses from extension. Avaialable formats: [pdf | json]
     filename: Option<String>
 }
 
@@ -86,6 +87,12 @@ fn main() {
                 match generate_and_save_pdf(&wallets, args.exclude, args.birthday, filename) {
                     Ok(f) => println!("PDF file saved: {}", f),
                     _ => println!("Error saving the PDF file to disk.")
+                };
+            },
+            Some("json") => {
+                match generate_and_save_json(&wallets, args.exclude, filename) {
+                    Ok(f) => println!("JSON file saved: {}", f),
+                    _=> println!("Error saving the JSON file to disk.")
                 };
             },
             _ => println!("Output format not supported.")
