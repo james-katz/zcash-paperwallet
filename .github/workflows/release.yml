@@ -29,7 +29,7 @@ jobs:
       # Step 3: Build the binary
       - name: Build the project
         run: |
-          cargo build --release --target ${{ matrix.target }}
+          cargo build --release
 
       # Step 4: Upload the artifact (binary)
       - name: Upload Build Artifact
