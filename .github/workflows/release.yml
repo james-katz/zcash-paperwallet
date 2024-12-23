@@ -27,17 +27,18 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' ||  '' }}
-        path: target/release/zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' ||  '' }}
+        name: zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || matrix.os == 'macos-latest' && '.dmg' || '' }}
+        path: target/release/zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || matrix.os == 'macos-latest' && '.dmg' || '' }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
+    # - name: Download artifacts
+    #   uses: actions/download-artifact@v3
 
     - name: Create Release
+      if: startsWith(github.ref_name, 'v')
       uses: softprops/action-gh-release@v2
 
       env:
