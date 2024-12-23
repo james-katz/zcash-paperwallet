@@ -1,0 +1,39 @@
+name: Rust CI Linux
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+    - name: Check out code
+      uses: actions/checkout@v3
+
+      - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ubuntu-latest
+
+    - name: Build binary
+      run: cargo build --release
+
+   
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: zcash-paperwallet
+        path: target/release/zcash-paperwallet
+    - name: Create Release
+      if: startsWith(github.ref_name, 'v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: target/release/zcash-paperwallet
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
