@@ -73,6 +73,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/zcash-paperwallet-*
-          asset_name: ${{ runner.os }}-zcash-paperwallet${{ runner.os == 'windows-latest' && '.exe' || '' }}
+          asset_path: artifacts/zcash-paperwallet
+          asset_name: zcash-paperwallet${{ runner.os == 'windows-latest' && '.exe' || '' }}
           asset_content_type: application/octet-stream
