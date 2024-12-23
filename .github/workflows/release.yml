@@ -27,7 +27,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: zcash-paperwallet
-        path: cli/target/release/zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        path: target/release/zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   release:
     needs: build
