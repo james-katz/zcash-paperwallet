@@ -43,4 +43,4 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:        
-        files: zcash-paperwallet*
+        files: target/release/zcash-paperwallet*
