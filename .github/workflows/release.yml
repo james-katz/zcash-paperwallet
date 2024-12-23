@@ -21,7 +21,9 @@ jobs:
         target: ${{ matrix.os == 'windows-latest' && 'x86_64-pc-windows-msvc' || '' }}
 
     - name: Build binary
-      run: cargo build --release
+      run: |
+        cargo clean
+        cargo build --release
 
     - name: Upload artifact
       uses: actions/upload-artifact@v3
