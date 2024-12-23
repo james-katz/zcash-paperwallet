@@ -25,7 +25,7 @@ jobs:
       run: cargo build --release
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: zcash-paperwallet
         path: target/release/zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || '' }}
@@ -38,12 +38,10 @@ jobs:
       uses: actions/download-artifact@v3
 
     - name: Create Release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v2
+
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.event.release.tag_name }}
-        release_name: Release ${{ github.event.release.tag_name }}
-        draft: false
-        prerelease: false
+        
+      with:        
         files: zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || '' }}
