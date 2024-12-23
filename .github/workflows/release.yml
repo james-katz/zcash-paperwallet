@@ -28,7 +28,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: zcash-paperwallet
-        path: target/release/zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        path: target/release/zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || matrix.os == 'macos-latest' && '.dmg' || '' }}
 
   release:
     needs: build
@@ -42,6 +42,5 @@ jobs:
 
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
       with:        
-        files: zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        files: zcash-paperwallet${{ matrix.os == 'windows-latest' && '.exe' || matrix.os == 'macos-latest' && '.dmg' || '' }}
