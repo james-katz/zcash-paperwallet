@@ -32,7 +32,7 @@ jobs:
       # Upload build artifacts for Linux x86_64 platform
       - name: Upload artifact (Linux)
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'x86_64'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: zcash-paperwallet
           path: target/release/zcash-paperwallet
@@ -40,7 +40,7 @@ jobs:
       # Upload build artifacts for macOS x86_64 platform
       - name: Upload artifact (macOS)
         if: matrix.os == 'macos-latest' && matrix.arch == 'x86_64'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: zcash-paperwallet-macos
           path: target/release/zcash-paperwallet
@@ -48,7 +48,7 @@ jobs:
       # Upload build artifacts for Windows x86_64 platform
       - name: Upload artifact (Windows)
         if: matrix.os == 'windows-latest' && matrix.arch == 'x86_64'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: zcash-paperwallet.exe
           path: target/release/zcash-paperwallet.exe   
@@ -63,21 +63,21 @@ jobs:
 
       # Download build artifacts for Linux x86_64 platform
       - name: Download artifact (Linux-x86_64)
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: zcash-paperwallet
           path: artifacts/ubuntu
 
       # Download build artifacts for macOS x86_64 platform
       - name: Download artifact (macOS-x86_64)
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: zcash-paperwallet-macos
           path: artifacts/macos
 
       # Download build artifacts for Windows x86_64 platform
       - name: Download artifact (Windows-x86_64)
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: zcash-paperwallet.exe
           path: artifacts/windows
