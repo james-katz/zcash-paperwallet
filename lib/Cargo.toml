@@ -5,13 +5,15 @@ edition = "2021"
 
 [dependencies]
 bip0039 = "0.12.0"
-orchard = { version = "0.10.1", features = ["circuit"] }
-zcash_client_backend = { version = "0.15.0", features = ["transparent-inputs", "orchard"] }
-zcash_primitives = { version = "0.20.0", features = ["transparent-inputs"] }
+orchard = { version = "0.10.1", default-features = false, features = ["circuit"] }
+zcash_client_backend = { version = "0.15.0", default-features = false, features = ["transparent-inputs", "orchard"] }
+zcash_primitives = { version = "0.20.0", default-features = false, features = ["transparent-inputs"] }
 sapling = { package = "sapling-crypto", version = "0.3", default-features = false }
 chrono = "0.4"
-printpdf = "0.7.0"
 textwrap = "0.16.1"
-qrcode = "0.14.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+qrcode = "0.14.1"
+printpdf = "0.7.0"
