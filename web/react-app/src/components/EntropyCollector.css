@@ -1,0 +1,51 @@
+.entropy-collector {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .entropy-collector p {
+    font-size: 1.2em;
+    margin-bottom: 20px;
+  }
+  
+  .entropy-hex {
+    position: relative;
+    font-family: monospace;
+    word-break: break-word;
+    width: 90%; /* Fixed width */
+    max-width: 900px; /* Limit the width for larger screens */
+    height: 256px; /* Fixed height */
+    margin: 0 auto;
+    background-color: #f4f4f4;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden; /* Hide overflowing content */
+    text-overflow: ellipsis; /* Optional: Add ellipsis for overflowing text */
+  }
+  
+  .trail-dot {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: rgba(0, 150, 255, 0.7);
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+  }
+
+  .mouse-trail-wrapper {
+    position: fixed; /* Covers the entire screen */
+    top: 0;
+    left: 0;
+    pointer-events: none; /* Let mouse events pass through */
+
+    width: 100vw; /* Full viewport width */
+    height: 100vh; /* Full viewport height */
+    pointer-events: none; /* Prevent interaction blocking */
+    z-index: 9999; /* Ensure it appears above all content */
+  }
+  
