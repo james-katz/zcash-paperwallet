@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@pjsalita/react-mouse-trail": "^1.0.8",
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",
     "cra-template": "1.2.0",
     "react": "^19.0.0",

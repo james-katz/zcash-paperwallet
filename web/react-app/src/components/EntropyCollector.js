@@ -1,20 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./EntropyCollector.css";
-import MouseTrail from "@pjsalita/react-mouse-trail";
 
 function EntropyCollector({ onEntropyCollected }) {
-    const trailConfig = {
-        color: "#000000",
-        idleAnimation: true,
-        idleAnimationCount: 10,
-        inverted: false,
-        size: 16,
-        trailCount: 64,
-    };
-    
     const entropyRef = useRef([]); // Use ref for entropy
     const [done, setDone] = useState(false);
-    const [percentage, setPercentage] = useState(0);
     const [trail, setTrail] = useState([]); // Array of mouse positions for the trail
 
     useEffect(() => {
@@ -22,28 +11,49 @@ function EntropyCollector({ onEntropyCollected }) {
   
         const collectEntropy = (event) => {
             if (entropyRef.current.length < 512) {
-                const newValue = (event.clientX ^ event.clientY) % 255;                                
-                if(Math.random() > 0.25) entropyRef.current.push(newValue)
+                let x, y;
+
+                // Handle mousemove for desktop
+                if (event.type === "mousemove") {
+                    x = event.clientX;
+                    y = event.clientY;
+                }
                 
+                // Handle touchmove for mobile
+                if (event.type === "touchmove") {
+                    const touch = event.touches[0]; // Get the first touch point
+                    x = touch.clientX;
+                    y = touch.clientY;
+                }
+                const newValue = (x ^ y) % 255;                                
+                
+                if(Math.random() > 0.25) entropyRef.current.push(newValue);
+
+                // Update the trail every `n` moves
+                moveCounter++;
+                if (moveCounter % 2 === 0) {
+                    setTrail((prev) => [
+                        ...prev,
+                        { x: x, y: y, id: Date.now() },
+                    ]);
+                }                
             } else if (!done) {
                 setDone(true);
-                onEntropyCollected(new Uint8Array(entropyRef.current));
-            }
+                window.removeEventListener("mousemove", collectEntropy);
+                window.removeEventListener("touchmove", collectEntropy);
 
-            // Update the trail every `n` moves
-            moveCounter++;
-            if (moveCounter % 2 === 0) {
-                setTrail((prev) => [
-                ...prev,
-                { x: event.clientX, y: event.clientY, id: Date.now() },
-                ]);
-            }
+                onEntropyCollected(new Uint8Array(entropyRef.current));
+            }            
         };
 
         window.addEventListener("mousemove", collectEntropy);
+        window.addEventListener("touchmove", collectEntropy);
 
-        return () => window.removeEventListener("mousemove", collectEntropy);
-    }, [entropyRef, percentage, done, onEntropyCollected]);
+        return () => {
+            window.removeEventListener("mousemove", collectEntropy);
+            window.removeEventListener("touchmove", collectEntropy);
+        }
+    }, [entropyRef, done, onEntropyCollected]);
 
     // Convert entropy to a hexadecimal string
     const entropyHex = entropyRef.current 
@@ -52,9 +62,8 @@ function EntropyCollector({ onEntropyCollected }) {
 
     return (
         <div className="entropy-collector">       
-            {/* Full-screen wrapper for MouseTrail */}
-            <div className="mouse-trail-wrapper">
-                {/* <MouseTrail {...trailConfig} /> */}
+            {/* Full-screen wrapper for mouse trail */}
+            <div className="mouse-trail-wrapper">                
                 {/* Render the drag marks */}
                 {trail.map((point) => (
                     <div

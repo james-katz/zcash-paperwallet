@@ -5,7 +5,7 @@ import "./Navbar.css";
 function Navbar() {
   return (
     <nav className="navbar">
-      <div className="navbar-logo">My Wallet Generator</div>
+      <div className="navbar-logo">Zcash Paper Wallet Generator</div>
       <div className="navbar-links">
         <Link to="/">Home</Link>
         <Link to="/about">About</Link>

@@ -4,6 +4,8 @@
     justify-content: space-between;
     background-color: #333;
     padding: 10px 20px;
+    /* width: 100%;
+    max-width: 100vh; */
     color: white;
     font-family: Arial, sans-serif;
   }

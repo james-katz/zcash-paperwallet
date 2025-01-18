@@ -5,15 +5,17 @@ import "./styles.css";
 
 function Home({ wasm }) {
   const [wallets, setWallets] = useState([]);
+  const [userEntropy, setUserEntropy] = useState([]);
 
-  const handleEntropyCollected = (entropy) => {
-    const wallet = wasm.generate_wallet_from_entropy(entropy);
+  const handleEntropyCollected = (entropy) => {    
+    setUserEntropy(entropy);
+    const wallet = wasm.generate_wallet_with_salt(userEntropy);
+    console.log(wallet);
     setWallets([wallet]);
   };
 
   const addNewWallet = () => {
-    const entropy = new Uint8Array(32).map(() => Math.floor(Math.random() * 256));
-    const wallet = wasm.generate_wallet_from_entropy(entropy);
+    const wallet = wasm.generate_wallet_with_salt(userEntropy);
     setWallets((prev) => [...prev, wallet]);
   };
 
@@ -23,14 +25,14 @@ function Home({ wasm }) {
 
   return (
     <div className="home">
-      {wallets.length === 0 && <EntropyCollector onEntropyCollected={handleEntropyCollected} />}
-      {wallets.map((wallet, index) => (
-        <WalletCard key={index} wallet={wallet} />
-      ))}
+      {wallets.length === 0 && <EntropyCollector onEntropyCollected={handleEntropyCollected} />}      
       {wallets.length > 0 && (
         <div className="buttons">
           <button onClick={addNewWallet}>Add New Wallet</button>
           <button onClick={printWallets}>Print</button>
+          {wallets.map((wallet, index) => (
+            <WalletCard key={index} wallet={wallet} />
+          ))}
         </div>
       )}
     </div>

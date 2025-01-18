@@ -1,0 +1,24 @@
+.wallet-card {
+    background-color: #ffffff; /* White background for the card */
+    border: 1px solid #e0e0e0; /* Light gray border for subtle definition */
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+    padding: 16px; /* Space inside the card */
+    margin: 16px; /* Space outside the card */
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 85%; /* Optional: Limit the width */
+    font-family: 'Arial', sans-serif; /* Clean, modern font */
+    word-wrap: break-word;
+}
+  
+.wallet-card p {
+    margin: 8px 0; /* Spacing between paragraphs */
+    color: #333333; /* Dark text color for readability */
+    font-size: 14px; /* Smaller font size for compact text */
+}
+  
+.wallet-card strong {
+    color: #000000; /* Bold text color for emphasis */
+}
+  
