@@ -8,25 +8,27 @@ use sha2::{Sha256, Digest};
 pub struct WebPaperWallet {
     seed: String,
     address: String,
-    ufvk: String
+    ufvk: String,
+    birthday: u32
 }
 
 // A function to generate a Zcash paper wallet
 #[wasm_bindgen]
 pub fn generate_wallet_from_entropy(entropy: &[u8]) -> JsValue {
     let wallet = PaperWallet::from_entropy("main", entropy.to_vec());
-    let (seed_phrase, ua, ufvk) = match wallet {
+    let (seed_phrase, ua, ufvk, birthday) = match wallet {
         Ok(w) => {
             let seed = w.get_seed_phrase().to_string();
             let ua = w.get_unified_address(vec![]);
             let ufvk = w.get_ufvk();
-
-            (seed, ua, ufvk)
+            let birth = w.get_estimated_birthday();
+            (seed, ua, ufvk, birth)
         }
         Err(_) => (
             "Error: Could not retrieve seed".to_string(),
             "Error: No unified address".to_string(),
             "Error: No UFVK".to_string(),
+            0,
         ),
     };
 
@@ -34,6 +36,7 @@ pub fn generate_wallet_from_entropy(entropy: &[u8]) -> JsValue {
         seed: seed_phrase,
         address: ua,
         ufvk,
+        birthday
     };
 
     println!("{:#?}", web_wallet);

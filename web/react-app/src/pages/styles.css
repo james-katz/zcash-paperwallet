@@ -1,39 +1,56 @@
-    .home {
-        /* display: flex; */
-        /* flex-direction: column; */
-        align-items: center; /* Center content horizontally */
-        padding: 20px;
-        font-family: 'Arial', sans-serif; /* Clean, modern font */
-        /* background-color: #f9f9f9;  */
-        /* min-height: 100vh; Ensure full viewport height */
+.home {
+    /* display: flex; */
+    /* flex-direction: column; */
+    align-items: center; /* Center content horizontally */
+    padding: 20px;
+    font-family: 'Arial', sans-serif; /* Clean, modern font */
+    /* background-color: #f9f9f9;  */
+    /* min-height: 100vh; Ensure full viewport height */
+}
+
+.buttons {
+    /* display: flex; */
+    gap: 16px; /* Spacing between buttons */
+    margin-bottom: 20px; /* Space between buttons and cards */
+}
+
+.buttons button {
+    background-color: #007bff; /* Light blue color */
+    color: white; /* White text for contrast */
+    border: none; /* Remove default border */
+    border-radius: 8px; /* Rounded corners */
+    padding: 12px 24px; /* Comfortable padding */
+    margin: 4px;
+    font-size: 16px; /* Slightly larger font for visibility */
+    font-weight: bold; /* Bold text for emphasis */
+    cursor: pointer; /* Pointer cursor on hover */
+    transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth transition */
+}
+
+.buttons button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+    transform: translateY(-2px); /* Slight lift effect */
+}
+
+.buttons button:active {
+    background-color: #004494; /* Even darker blue on click */
+    transform: translateY(1px); /* Subtle press effect */
+}
+
+@media print {
+    body * {
+        visibility: hidden; /* Hide everything */
     }
-    
-    .buttons {
-        /* display: flex; */
-        gap: 16px; /* Spacing between buttons */
-        margin-bottom: 20px; /* Space between buttons and cards */
+    .print-area, .print-area * {
+        visibility: visible; /* Show only the print area */
     }
-    
-    .buttons button {
-        background-color: #007bff; /* Light blue color */
-        color: white; /* White text for contrast */
-        border: none; /* Remove default border */
-        border-radius: 8px; /* Rounded corners */
-        padding: 12px 24px; /* Comfortable padding */
-        margin: 4px;
-        font-size: 16px; /* Slightly larger font for visibility */
-        font-weight: bold; /* Bold text for emphasis */
-        cursor: pointer; /* Pointer cursor on hover */
-        transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth transition */
+    .print-area {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
     }
-    
-    .buttons button:hover {
-        background-color: #0056b3; /* Darker blue on hover */
-        transform: translateY(-2px); /* Slight lift effect */
-    }
-    
-    .buttons button:active {
-        background-color: #004494; /* Even darker blue on click */
-        transform: translateY(1px); /* Subtle press effect */
-    }
-    
+
+    .pagebreak { page-break-after: always; } /* page-break-after works, as well */
+}
+  

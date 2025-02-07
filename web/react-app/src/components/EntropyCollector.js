@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./EntropyCollector.css";
 
+const ENTROPY_SIZE = 512;
+
 function EntropyCollector({ onEntropyCollected }) {
     const entropyRef = useRef([]); // Use ref for entropy
     const [done, setDone] = useState(false);
@@ -10,7 +12,7 @@ function EntropyCollector({ onEntropyCollected }) {
         let moveCounter = 0; // Counter to track mouse movements
   
         const collectEntropy = (event) => {
-            if (entropyRef.current.length < 512) {
+            if (entropyRef.current.length < ENTROPY_SIZE) {
                 let x, y;
 
                 // Handle mousemove for desktop
@@ -34,7 +36,7 @@ function EntropyCollector({ onEntropyCollected }) {
                 if (moveCounter % 2 === 0) {
                     setTrail((prev) => [
                         ...prev,
-                        { x: x, y: y, id: Date.now() },
+                        { x: x, y: y, id: Date.now() + Math.random() * 1024 },
                     ]);
                 }                
             } else if (!done) {
@@ -82,7 +84,7 @@ function EntropyCollector({ onEntropyCollected }) {
                 {/* <strong>Entropy:</strong> */}
                  {entropyHex}
             </div>
-            <p>Collected {((entropyRef.current.length / 512) * 100).toFixed(2)} %</p>
+            <p>Collected {((entropyRef.current.length / ENTROPY_SIZE) * 100).toFixed(2)} %</p>
 
             </>
         )}

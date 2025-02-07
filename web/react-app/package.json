@@ -5,6 +5,7 @@
   "dependencies": {
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",
     "cra-template": "1.2.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.2",
