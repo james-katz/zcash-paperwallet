@@ -113,7 +113,7 @@ const WalletCardImg = ({ wallet }) => {
         await QRCode.toCanvas(seedQrCanvas, wallet.seed, { width: 460});
 
         // Draw the QR code on the main canvas
-        ctx.drawImage(ufvkQrCanvas, 145, 238); // UFVK
+        ctx.drawImage(ufvkQrCanvas, 145, 237); // UFVK
         ctx.drawImage(addrQrCanvas, 145, 1021); // Unified Address
         ctx.drawImage(seedQrCanvas, 1668, 224); // Recovery Phrase
       };
