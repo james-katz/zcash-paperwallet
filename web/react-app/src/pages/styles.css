@@ -54,3 +54,46 @@
     .pagebreak { page-break-after: always; } /* page-break-after works, as well */
 }
   
+.about-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    background: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+  
+h1 {
+    text-align: center;
+    color: #333;
+}
+  
+h2 {
+    color: #444;
+    margin-top: 20px;
+}
+  
+p {
+    color: #555;
+    font-size: 16px;
+}
+  
+ol {
+    margin-left: 20px;
+    padding-left: 10px;
+}
+  
+ol li {
+    margin: 8px 0;
+}
+  
+footer {
+    text-align: center;
+    margin-top: 30px;
+    padding: 10px;
+    font-size: 14px;
+    color: #666;
+}
+  
