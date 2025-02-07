@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./EntropyCollector.css";
 
-const ENTROPY_SIZE = 512;
+const ENTROPY_SIZE = 32;
 
 function EntropyCollector({ onEntropyCollected }) {
     const entropyRef = useRef([]); // Use ref for entropy

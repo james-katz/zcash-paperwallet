@@ -1,5 +1,5 @@
 import React from "react";
-import "./About.css"; // Import the CSS file
+import "./styles.css"; // Import the CSS file
 
 const About = () => {
   return (
@@ -27,15 +27,15 @@ const About = () => {
       <section>
         <h2>How to Use This Website</h2>
         <p>
-          This website generates a **Zcash paper wallet** by collecting entropy from your **mouse movements**. 
+          This website generates a <strong>Zcash paper wallet</strong> by collecting entropy from your <strong>mouse movements</strong>. 
           Follow these steps to create your secure wallet:
         </p>
         <ol>
-          <li>Move your mouse randomly until the **entropy collector** reaches 100%.</li>
+          <li>Move your mouse randomly until the <strong>entropy collector</strong> reaches 100%.</li>
           <li>Once the entropy is collected, you will be redirected to your generated wallet.</li>
-          <li>Choose between an **image-based wallet** or a **text-only wallet**.</li>
+          <li>Choose between an <strong>image-based wallet</strong> or a <strong>text-only wallet</strong>.</li>
           <li>
-            You can either **right-click** on the wallet image and **save it**, or click the **Print** button 
+            You can either <strong>right-click</strong> on the wallet image and <strong>save it</strong>, or click the <strong>Print</strong> button 
             to print your wallet (or save it as a PDF).
           </li>
         </ol>
@@ -43,11 +43,11 @@ const About = () => {
 
       <section>
         <h2>Security Considerations</h2>
-        <p>
-          - Never share your **seed phrase** or **private keys** with anyone.<br />
-          - Store your printed wallet in a **safe and secure place**.<br />
-          - Do not generate wallets on public or untrusted devices.<br />
-        </p>
+        <ul>
+          <li>Never share your <strong>seed phrase</strong> or <strong>private keys</strong> with anyone.</li>
+          <li>Store your printed wallet in a <strong>safe and secure place</strong>.</li>
+          <li>Do not generate wallets on public or untrusted devices.</li>
+        </ul>
       </section>
 
       <footer>

@@ -95,7 +95,7 @@ const WalletCardImg = ({ wallet }) => {
         // Add text for wallet birthday
         ctx.font = "48px Arial";
         ctx.fillStyle = "#000"; // Black text
-        ctx.fillText(`${wallet.birthday}`, 1975, 1530);
+        ctx.fillText(`${wallet.birthday}`, 1925, 1485);
 
         // Add recovery phrase
         printRecoveryPhrase(ctx, wallet.seed);
