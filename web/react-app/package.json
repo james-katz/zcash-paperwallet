@@ -13,8 +13,9 @@
     "web-vitals": "^4.2.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "npm run build:wasm && react-scripts start",
+    "build:wasm": "rm -rf ../react-app/src/wasm && cd ../web && wasm-pack build --target web --release --out-dir ../react-app/src/wasm",
+    "build": "npm run build:wasm && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
