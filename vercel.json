@@ -1,0 +1,14 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "web/react-app/package.json",
+        "use": "@vercel/static-build",
+        "config": { "distDir": "web/react-app/build" }
+      }
+    ],
+    "routes": [
+      { "src": "/(.*)", "dest": "web/react-app/$1" }
+    ]
+  }
+  
