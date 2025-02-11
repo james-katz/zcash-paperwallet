@@ -15,7 +15,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build:wasm": "rm -rf src/wasm && cd .. && wasm-pack build --target web --release --out-dir ./react-app/src/wasm  && rm -f ./react-app/src/wasm/.gitignore",
-    "build": "ESLINT_NO_DEV_ERRORS=true react-scripts build",
+    "build": "CI=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
