@@ -8,7 +8,7 @@
       }
     ],
     "routes": [
-      { "src": "/(.*)", "dest": "web/react-app/$1" }
+      { "src": "/(.*)", "dest": "web/react-app/build/$1" }
     ]
   }
   
