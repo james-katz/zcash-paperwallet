@@ -13,10 +13,9 @@
     "web-vitals": "^4.2.4"
   },
   "scripts": {
-    "preinstall": "curl -fsSL https://ziglang.org/builds/zig-linux-x86_64-0.14.0-dev.3188+34644511b.tar.xz | tar -xJ && export PATH=$PWD/zig-linux-x86_64-0.10.1:$PATH && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env && curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh",
     "start": "react-scripts start",
     "build:wasm": "source $HOME/.cargo/env && rm -rf src/wasm && cd .. && wasm-pack build --target web --release --out-dir ./react-app/src/wasm",
-    "build": "npm run build:wasm && react-scripts build",
+    "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
