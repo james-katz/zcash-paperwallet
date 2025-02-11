@@ -14,7 +14,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build:wasm": "source $HOME/.cargo/env && rm -rf src/wasm && cd .. && wasm-pack build --target web --release --out-dir ./react-app/src/wasm",
+    "build:wasm": "rm -rf src/wasm && cd .. && wasm-pack build --target web --release --out-dir ./react-app/src/wasm  && rm -f ./react-app/src/wasm/.gitignore",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
