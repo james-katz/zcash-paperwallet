@@ -13,7 +13,7 @@
     "web-vitals": "^4.2.4"
   },
   "scripts": {
-    "preinstall": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env && curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh",
+    "preinstall": "apt-get update && apt-get install -y clang && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env && curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh",
     "start": "react-scripts start",
     "build:wasm": "source $HOME/.cargo/env && rm -rf src/wasm && cd .. && wasm-pack build --target web --release --out-dir ./react-app/src/wasm",
     "build": "npm run build:wasm && react-scripts build",
