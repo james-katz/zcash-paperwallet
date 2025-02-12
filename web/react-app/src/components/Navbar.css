@@ -2,17 +2,28 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #333;
+    background-color: #eec57c;
     padding: 10px 20px;
     /* width: 100%;
     max-width: 100vh; */
-    color: white;
+    color: #9c5d1a;
     font-family: Arial, sans-serif;
   }
   
   .navbar-logo {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
     font-size: 1.5em;
     font-weight: bold;
+  }
+
+  .navbar-logo-img {
+    width: 3rem;
+    height: auto;
+  }
+  .navbar-logo p {
+    color: #9c5d1a;
   }
   
   .navbar-links {
@@ -22,12 +33,12 @@
   
   .navbar-links a {
     text-decoration: none;
-    color: white;
+    color: #9c5d1a;
     font-size: 1em;
     transition: color 0.3s ease;
   }
   
   .navbar-links a:hover {
-    color: #00bcd4;
+    color: #44330b;
   }
   

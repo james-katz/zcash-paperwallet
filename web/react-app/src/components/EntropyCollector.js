@@ -71,7 +71,7 @@ function EntropyCollector({ onEntropyCollected }) {
                     <div
                         key={point.id}
                         className="trail-dot"
-                        style={{ top: point.y, left: point.x }}
+                        style={{ top: point.y, left: point.x, backgroundImage: `url(${process.env.PUBLIC_URL + "dot.png"})` }}
                     ></div>
                 ))}
             </div>

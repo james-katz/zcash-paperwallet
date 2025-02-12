@@ -29,9 +29,9 @@
   
   .trail-dot {
     position: absolute;
-    width: 10px;
-    height: 10px;
-    background-color: rgba(0, 150, 255, 0.7);
+    width: 16px;
+    height: 16px;
+    /* background-color: rgba(0, 150, 255, 0.7); */
     border-radius: 50%;
     pointer-events: none;
     transform: translate(-50%, -50%);

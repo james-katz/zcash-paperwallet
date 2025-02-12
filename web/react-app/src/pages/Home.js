@@ -38,27 +38,30 @@ const handleEntropyCollected = (entropy) => {
     <div className="home">
       {wallets.length === 0 && <EntropyCollector onEntropyCollected={handleEntropyCollected} />}      
       {wallets.length > 0 && (
+      <>
         <div className="buttons">
           <button onClick={addNewWallet}>Add New Wallet</button>
           <button onClick={printWallets}>Print</button>
           <input type="checkbox" onChange={handleCheckBox} id="textOnly"></input><label for="textOnly">Text only</label>
-          <div className="print-area">
-            {wallets.map((wallet, index) => (
-              <>
-                {textOnly ? (
-                  <>
-                    <WalletCard key={index} wallet={wallet} />
-                    <div class="pagebreak"></div>
-                  </>
-                ) : (
-                  <>
-                    <WalletCardImg key={index} wallet={wallet} />
-                  </>
-                )}
-              </>
-            ))}
-          </div>
+         </div>
+        <div className="print-area">
+          {wallets.map((wallet, index) => (
+            <>
+              {textOnly ? (
+                <>
+                  <WalletCard key={index} wallet={wallet} />
+                  <div class="pagebreak"></div>
+                </>
+              ) : (
+                <>
+                  <WalletCardImg key={index} wallet={wallet} />
+                  <div class="pagebreak-avoid"></div>
+                </>
+              )}
+            </>
+          ))}
         </div>
+      </>
       )}
     </div>
   );

@@ -1,11 +1,13 @@
 .home {
-    /* display: flex; */
-    /* flex-direction: column; */
+    display: flex;
+    flex-direction: column;
     align-items: center; /* Center content horizontally */
     padding: 20px;
     font-family: 'Arial', sans-serif; /* Clean, modern font */
-    /* background-color: #f9f9f9;  */
-    /* min-height: 100vh; Ensure full viewport height */
+    background-color: #f1ddb8; 
+    min-height: 85vh; 
+    
+    /* min-width: 85vh; */
 }
 
 .buttons {
@@ -15,8 +17,8 @@
 }
 
 .buttons button {
-    background-color: #007bff; /* Light blue color */
-    color: white; /* White text for contrast */
+    background-color: #44330b; /* Light blue color */
+    color: #f4b728; /* White text for contrast */
     border: none; /* Remove default border */
     border-radius: 8px; /* Rounded corners */
     padding: 12px 24px; /* Comfortable padding */
@@ -28,12 +30,13 @@
 }
 
 .buttons button:hover {
-    background-color: #0056b3; /* Darker blue on hover */
+    background-color: #eec57c; /* Darker blue on hover */
+    color: #44330b;
     transform: translateY(-2px); /* Slight lift effect */
 }
 
 .buttons button:active {
-    background-color: #004494; /* Even darker blue on click */
+    background-color: #221904; /* Even darker blue on click */
     transform: translateY(1px); /* Subtle press effect */
 }
 
@@ -51,7 +54,9 @@
         width: 100%;
     }
 
-    .pagebreak { page-break-after: always; } /* page-break-after works, as well */
+    .pagebreak { page-break-after: always; } 
+    .pagebreak-avoid { page-break-after: avoid; } 
+
 }
   
 .about-container {
