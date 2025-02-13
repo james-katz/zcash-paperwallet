@@ -7,16 +7,16 @@ function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight) {
     let line = "";
     let currentY = y;
    
-    ctx.font = `${fontSize}px Arial`;
+    ctx.font = `${fontSize}px Roboto Sans`;
 
     for (let i = 0; i < words.length; i++) {
-      const testLine = line + words[i] + " ";
+      const testLine = line + words[i];
       const testWidth = ctx.measureText(testLine).width;
   
       if (testWidth > maxWidth && i > 0) {
         // Draw the current line and move to the next
         ctx.fillText(line, x, currentY);
-        line = words[i] + " "; // Start a new line
+        line = words[i]; // Start a new line
         currentY += lineHeight; // Move down by line height
       } else {
         line = testLine;
@@ -28,24 +28,25 @@ function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight) {
 } 
 
 function printRecoveryPhrase(ctx, seed) {
-  const startX = 1700;
-  const startY = 748;
+  const startX = 1150;
+  const startY = 219;
   let currentX = startX;
   let currentY = startY;
-  const lineSpace = 39;
+  const lineSpace = 26;
 
   const words = seed.split(" ");
 
   // WARNING: DO NOT UNCOMMENT NEXT LINE!!!  
   // words[0] = "refrigerator"; // Test long word
+  // words[11] = "refrigerator"; // Test long word
 
   for(let i = 0; i < words.length; i ++) {
     if(i == 12) {
-      currentX = startX + 262;
+      currentX = startX + 180;
       currentY = startY;
     } 
 
-    ctx.font = "36px Sans";
+    ctx.font = "24px Sans";
     ctx.fillStyle = "#000"; // Black text
     ctx.fillText(`${words[i]}`, currentX, currentY);
 
@@ -64,7 +65,7 @@ const WalletCardImg = ({ wallet }) => {
     const renderWallet = async () => {
       // Hardcoded background image
       const bgImage = new Image();
-      bgImage.src = "/paperwallet_bg2.png";
+      bgImage.src = "/Paper_Zcash_Wallet_vazio.jpg";
 
       bgImage.onload = async () => {
         // Set canvas size to match the background image
@@ -78,7 +79,7 @@ const WalletCardImg = ({ wallet }) => {
         // drawWrappedText(ctx, wallet.ufvk, 180, 210, 430, 12, 12);
 
         // Add address text
-        // drawWrappedText(ctx, wallet.address, 180, 1025, 430, 20, 18);
+        // drawWrappedText(ctx, wallet.address, 80, 685, 355, 24, 25);
 
         /*
         // Add reference address text, rotated
@@ -93,29 +94,29 @@ const WalletCardImg = ({ wallet }) => {
         */
 
         // Add text for wallet birthday
-        ctx.font = "48px Arial";
+        ctx.font = "32px Arial";
         ctx.fillStyle = "#000"; // Black text
-        ctx.fillText(`${wallet.birthday}`, 1925, 1485);
+        ctx.fillText(`${wallet.birthday}`, 1260, 995);
 
         // Add recovery phrase
         printRecoveryPhrase(ctx, wallet.seed);
 
         // Generate and add QR code for the ufvk
         const ufvkQrCanvas = document.createElement("canvas");
-        await QRCode.toCanvas(ufvkQrCanvas, wallet.ufvk, { width: 464});
+        await QRCode.toCanvas(ufvkQrCanvas, wallet.ufvk, { width: 311});
 
         // Generate and add QR code for the address
         const addrQrCanvas = document.createElement("canvas");
-        await QRCode.toCanvas(addrQrCanvas, wallet.address, { width: 464});
+        await QRCode.toCanvas(addrQrCanvas, wallet.address, { width: 265});
 
         // Generate and add QR code for the recovery phrase
         const seedQrCanvas = document.createElement("canvas");
-        await QRCode.toCanvas(seedQrCanvas, wallet.seed, { width: 460});
+        await QRCode.toCanvas(seedQrCanvas, wallet.seed, { width: 266});
 
         // Draw the QR code on the main canvas
-        ctx.drawImage(ufvkQrCanvas, 145, 237); // UFVK
-        ctx.drawImage(addrQrCanvas, 145, 1021); // Unified Address
-        ctx.drawImage(seedQrCanvas, 1668, 224); // Recovery Phrase
+        ctx.drawImage(ufvkQrCanvas, 95, 173); // UFVK
+        ctx.drawImage(addrQrCanvas, 630, 191); // Unified Address
+        ctx.drawImage(seedQrCanvas, 1138, 561); // Recovery Phrase
       };
     };
 

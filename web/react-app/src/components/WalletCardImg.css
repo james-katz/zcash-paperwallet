@@ -1,5 +1,5 @@
 canvas {
-    width: 60vw; /* Make the canvas width fill the viewport width */
+    width: 65vw; /* Make the canvas width fill the viewport width */
     height: auto; /* Maintain the aspect ratio of the canvas */
     display: block; /* Remove extra spacing from inline elements */
     margin: 0 auto; /* Center the canvas horizontally */
@@ -11,8 +11,7 @@ canvas {
 
 @media print {
     canvas {
-        width: 94vw; /* Make the canvas width fill the viewport width */
-        height: auto; /* Maintain the aspect ratio of the canvas */
-    }
-    
+        width: 94vw; 
+        height: auto;
+    } 
 }

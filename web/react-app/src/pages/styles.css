@@ -49,14 +49,16 @@
     }
     .print-area {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
+        top: 0; 
+        left: 0;        
     }
 
     .pagebreak { page-break-after: always; } 
-    .pagebreak-avoid { page-break-after: avoid; } 
-
+   
+    /* @page {
+      size: landscape;
+     margin: 0;
+    } */
 }
   
 .about-container {
@@ -65,7 +67,7 @@
     padding: 20px;
     font-family: Arial, sans-serif;
     line-height: 1.6;
-    background: #f9f9f9;
+    background: #eee6d7;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }

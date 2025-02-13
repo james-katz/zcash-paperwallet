@@ -55,7 +55,6 @@ const handleEntropyCollected = (entropy) => {
               ) : (
                 <>
                   <WalletCardImg key={index} wallet={wallet} />
-                  <div class="pagebreak-avoid"></div>
                 </>
               )}
             </>
