@@ -25,7 +25,11 @@ struct Args {
     birthday: bool,
     #[arg(short, long)]
     /// Save generated wallets to file. File type will be guesses from extension. Avaialable formats: [pdf | json]
-    filename: Option<String>
+    filename: Option<String>,
+    #[arg(short, long)]
+    /// Include transparent AccountPubKey
+    pubkey: bool,
+    
 }
 
 fn main() {            
@@ -90,7 +94,7 @@ fn main() {
                 };
             },
             Some("json") => {
-                match generate_and_save_json(&wallets, args.exclude, filename) {
+                match generate_and_save_json(&wallets, args.exclude, args.pubkey, filename) {
                     Ok(f) => println!("JSON file saved: {}", f),
                     _=> println!("Error saving the JSON file to disk.")
                 };
@@ -127,6 +131,13 @@ fn print_wallets_to_stdout(wallets: Vec<PaperWallet>, args:Args) {
     
         let ua = wallet.get_unified_address(args.exclude.clone().unwrap_or_default());
         println!("Unified Address:\n{}", ua);
+
+        if args.pubkey {
+            let taddy = wallet.get_transparent_address();
+            println!("Transparent Address: \n{}\n", taddy);
+            let pubkey = wallet.get_transparent_pubkey();
+            println!("Transparent PubKey: \n{}\n", pubkey);
+        }
 
         if wallets_num > 1 && count < wallets_num {
             println!("\n========================================\n");

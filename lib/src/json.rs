@@ -12,10 +12,12 @@ struct JsonPaperWallet {
     ua: String,
     sapling: String,
     transparent: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pubkey: Option<String>,
     birthday: u32
 }
 
-pub fn generate_and_save_json(wallets: &Vec<PaperWallet>, exclude: Option<Vec<String>>, filename: &str) -> Result<String, Box<dyn Error>> {
+pub fn generate_and_save_json(wallets: &Vec<PaperWallet>, exclude: Option<Vec<String>>, pubkey: bool, filename: &str) -> Result<String, Box<dyn Error>> {
     let json_wallets: Vec<JsonPaperWallet> = wallets.iter().map(|wallet| {
         JsonPaperWallet {
             mnemonic: wallet.get_seed_phrase().to_string(),
@@ -23,6 +25,11 @@ pub fn generate_and_save_json(wallets: &Vec<PaperWallet>, exclude: Option<Vec<St
             ua: wallet.get_unified_address(exclude.clone().unwrap_or_default()),
             sapling: wallet.get_sapling_address(),
             transparent: wallet.get_transparent_address(),
+            pubkey: if pubkey {
+                Some(wallet.get_transparent_pubkey())
+            } else {
+                None
+            },
             birthday: wallet.get_estimated_birthday()
         }
     }).collect();

@@ -1,8 +1,9 @@
 use bip0039::{Mnemonic, Count, English};
+use secp256k1::Secp256k1;
 use zcash_client_backend::keys::{UnifiedSpendingKey, UnifiedFullViewingKey, UnifiedAddressRequest};
 use zcash_primitives::consensus::{Network, BlockHeight, NetworkUpgrade, Parameters};
 use zcash_primitives::zip32::AccountId;
-use zcash_primitives::legacy::keys::IncomingViewingKey;
+use zcash_primitives::legacy::keys::{IncomingViewingKey, TransparentKeyScope, NonHardenedChildIndex, AccountPrivKey};
 use zcash_client_backend::encoding::{encode_payment_address, encode_transparent_address};
 use zcash_primitives::constants::mainnet::{HRP_SAPLING_PAYMENT_ADDRESS, B58_PUBKEY_ADDRESS_PREFIX, B58_SCRIPT_ADDRESS_PREFIX};
 use zcash_primitives::constants::testnet::{HRP_SAPLING_PAYMENT_ADDRESS as HRP_SAPLING_PAYMENT_ADDRESS_TESTNET, B58_PUBKEY_ADDRESS_PREFIX as B58_PUBKEY_ADDRESS_PREFIX_TESTNET, B58_SCRIPT_ADDRESS_PREFIX as B58_SCRIPT_ADDRESS_PREFIX_TESTNET};
@@ -20,6 +21,7 @@ const BLOCK_INTERVAL_SECONDS: i64 = 75; // Zcash target block interval
 
 pub struct PaperWallet {
     network: Network,
+    seed: Vec<u8>,
     seed_phrase: String,
     ufvk: UnifiedFullViewingKey,
     sapling_address: PaymentAddress,
@@ -64,14 +66,18 @@ impl PaperWallet {
             .ok_or("Failed to derived sapling address")?
             .default_address();
         
-        // Derive transparent address
-        let (t_address, _) = ufvk
+        // Get transparent pubkey
+        let pubkey = ufvk
             .transparent()
-            .ok_or("Failed to derive transparent AccountPuBey")?
+            .ok_or("Failed to derive transparent AccountPubKey")?
+            .to_owned();
+
+        // Derive transparent address
+        let (t_address, _) = pubkey
             .derive_external_ivk()
             .map_err(|_| "Failed to derive transparent ExternalIvk")?
             .default_address();
-        
+             
         let (oa, _) = ufvk
             .default_address(UnifiedAddressRequest::new(true, false, false).expect("Invalid UnifiedAddressRequest"))
             .map_err(|_| "Failed to derive orchard UnifiedAddress")?;           
@@ -81,6 +87,7 @@ impl PaperWallet {
 
         Ok(Self {
             network, 
+            seed,
             seed_phrase,
             ufvk,
             sapling_address,
@@ -129,6 +136,14 @@ impl PaperWallet {
             Network::MainNetwork => encode_transparent_address(&B58_PUBKEY_ADDRESS_PREFIX, &B58_SCRIPT_ADDRESS_PREFIX, &self.transparent_address),
             _ => encode_transparent_address(&B58_PUBKEY_ADDRESS_PREFIX_TESTNET, &B58_SCRIPT_ADDRESS_PREFIX_TESTNET, &self.transparent_address)
         }        
+    }
+
+    pub fn get_transparent_pubkey(&self) -> String {
+        let secp = Secp256k1::new();
+        let priv_key = AccountPrivKey::from_seed(&self.network, &self.seed, AccountId::default()).expect("Invalid seed");
+        let sk = priv_key.derive_secret_key(TransparentKeyScope::EXTERNAL, NonHardenedChildIndex::ZERO).expect("Invalid SecretKey");
+        let pub_key = sk.public_key(&secp);
+        hex::encode(pub_key.serialize())
     }
 
     // pub fn get_tex_address(&self) -> String {
