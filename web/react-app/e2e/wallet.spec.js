@@ -4,13 +4,13 @@ const ORIGIN = 'http://127.0.0.1:4173';
 
 // Moves the pointer until the entropy collector is satisfied and the first
 // wallet is on the page.
-async function generateWallet(page) {
+async function generateWallet(page, shift = 0) {
   await page.goto('/');
   await expect(page.getByText('Move your mouse to gather entropy')).toBeVisible();
 
   const addButton = page.getByRole('button', { name: 'Add New Wallet' });
   for (let lap = 0; lap < 40 && !(await addButton.isVisible()); lap++) {
-    await page.mouse.move(200 + ((lap * 137) % 800), 150 + ((lap * 91) % 500), {
+    await page.mouse.move(200 + shift + ((lap * 137) % 800), 150 + ((lap * 91) % 500), {
       steps: 40,
     });
   }
@@ -178,4 +178,30 @@ test('the phrase can be hidden when a print job never reports its end', async ({
 
   await page.getByRole('button', { name: 'Hide recovery phrase' }).click();
   await expect(page.getByText('Hidden on screen.')).toHaveCount(1);
+});
+
+// With the browser's random source pinned, the pointer path is the only
+// thing left that can make two wallets differ. If the collected bytes do not
+// reach the WASM, both wallets come out the same.
+test('the pointer path reaches the wallet', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Crypto.prototype, 'getRandomValues', {
+      value: (array) => {
+        array.fill(0);
+        return array;
+      },
+    });
+  });
+
+  const addressFor = async (shift) => {
+    await generateWallet(page, shift);
+    await page.getByLabel('Text only').check();
+    return page.evaluate(() => document.body.textContent.match(/u1[0-9a-z]{60,}/)[0]);
+  };
+
+  const first = await addressFor(0);
+  const second = await addressFor(61);
+
+  expect(first).toMatch(/^u1/);
+  expect(second).not.toBe(first);
 });

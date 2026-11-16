@@ -6,7 +6,8 @@ import App from './App';
 // implementation before the test runs.
 jest.mock('./wasm/web', () => ({
   __esModule: true,
-  default: () => Promise.resolve({ generate_wallet_with_salt: () => ({}) }),
+  default: () => Promise.resolve({}),
+  generate_wallet_with_salt: () => ({}),
 }));
 
 test('loads the WASM module and shows the entropy collector', async () => {

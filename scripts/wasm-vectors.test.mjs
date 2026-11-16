@@ -1,9 +1,10 @@
 // Run with: node --test scripts/wasm-vectors.test.mjs
 //
 // Loads the WASM file the site ships and checks it against the Rust sources:
-// same keys as the vectors in lib/src/paper.rs, and the birthday from
-// lib/src/checkpoint.rs. It fails when the committed WASM is older than the
-// Rust code, so a rebuild cannot be forgotten.
+// same keys as one vector in lib/src/paper.rs, the birthday from
+// lib/src/checkpoint.rs, no clock in the glue, and entropy that is used.
+// It catches a WASM left behind by a change to any of those. It does not
+// prove the binary was built from this tree: only a rebuild does.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -71,4 +72,23 @@ test('a salted wallet is a fresh 24 word phrase each time', () => {
   assert.equal(first.seed.split(' ').length, 24);
   assert.notEqual(first.seed, second.seed);
   assert.equal(first.birthday, wallet.birthday);
+});
+
+// With the random source pinned, the caller's bytes are the only input left.
+test('the typed wrapper mixes the caller entropy into the wallet', () => {
+  const real = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(globalThis.crypto), 'getRandomValues');
+  Object.defineProperty(globalThis.crypto, 'getRandomValues', {
+    configurable: true,
+    value: (array) => array.fill(0),
+  });
+  try {
+    const first = generate_wallet_with_salt(new Uint8Array(512).fill(7));
+    const again = generate_wallet_with_salt(new Uint8Array(512).fill(7));
+    const other = generate_wallet_with_salt(new Uint8Array(512).fill(9));
+    assert.equal(again.seed, first.seed);
+    assert.notEqual(other.seed, first.seed);
+  } finally {
+    delete globalThis.crypto.getRandomValues;
+    assert.equal(globalThis.crypto.getRandomValues, real.value);
+  }
 });
