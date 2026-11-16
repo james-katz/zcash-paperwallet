@@ -154,3 +154,28 @@ test('a real print job fires the events the page relies on', async ({ page }) =>
 
   expect(await page.evaluate(() => window.__printEvents)).toEqual(['before', 'after']);
 });
+
+test('adding a wallet with the phrase showing hides every phrase', async ({ page }) => {
+  await generateWallet(page);
+  await page.getByLabel('Text only').check();
+
+  const hidden = page.getByText('Hidden on screen.');
+  await page.getByRole('button', { name: 'Show recovery phrase' }).click();
+  await expect(hidden).toHaveCount(0);
+
+  // The new wallet has a phrase nobody asked to see.
+  await page.getByRole('button', { name: 'Add New Wallet' }).click();
+  await expect(hidden).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Show recovery phrase' })).toBeVisible();
+});
+
+test('the phrase can be hidden when a print job never reports its end', async ({ page }) => {
+  await generateWallet(page);
+  await page.getByLabel('Text only').check();
+
+  await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+  await expect(page.getByText('Hidden on screen.')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Hide recovery phrase' }).click();
+  await expect(page.getByText('Hidden on screen.')).toHaveCount(1);
+});
