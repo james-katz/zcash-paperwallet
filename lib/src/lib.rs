@@ -1,3 +1,4 @@
+pub mod checkpoint;
 pub mod paper;
 
 #[cfg(not(target_arch = "wasm32"))]

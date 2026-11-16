@@ -1,7 +1,7 @@
 use bip0039::{Mnemonic, Count, English};
 use secp256k1::Secp256k1;
 use zcash_client_backend::keys::{UnifiedSpendingKey, UnifiedFullViewingKey, UnifiedAddressRequest};
-use zcash_primitives::consensus::{Network, BlockHeight, NetworkUpgrade, Parameters};
+use zcash_primitives::consensus::{Network, BlockHeight};
 use zcash_primitives::zip32::AccountId;
 use zcash_primitives::legacy::keys::{IncomingViewingKey, TransparentKeyScope, NonHardenedChildIndex, AccountPrivKey};
 use zcash_client_backend::encoding::{encode_payment_address, encode_transparent_address};
@@ -13,11 +13,9 @@ use sapling::PaymentAddress;
 
 // use crate::pdf::generate_and_save_pdf;
 
-use chrono::{Utc, TimeZone};
+use crate::checkpoint;
 
 use std::error::Error;
-
-const BLOCK_INTERVAL_SECONDS: i64 = 75; // Zcash target block interval
 
 pub struct PaperWallet {
     network: Network,
@@ -82,8 +80,8 @@ impl PaperWallet {
             .default_address(UnifiedAddressRequest::new(true, false, false).expect("Invalid UnifiedAddressRequest"))
             .map_err(|_| "Failed to derive orchard UnifiedAddress")?;           
 
-        // Estimate a birthday based on current date
-        let birthday = PaperWallet::estimate_brithday(&network);
+        // Birthday from the chain checkpoint, never from the clock
+        let birthday = checkpoint::birthday(&network);
 
         Ok(Self {
             network, 
@@ -105,22 +103,6 @@ impl PaperWallet {
 
     pub fn from_seed(net: &str, bytes: Vec<u8>) -> Result<PaperWallet, Box<dyn Error>> {
         PaperWallet::new(&net, None, Some(bytes))
-    }
-
-    fn estimate_brithday(network: &Network) -> BlockHeight {                
-        let nu6_height = network.activation_height(NetworkUpgrade::Nu6).unwrap();
-        let nu6_date = match network {
-            Network::MainNetwork => Utc.with_ymd_and_hms(2024, 11, 23, 0, 0, 0),
-            _ => Utc.with_ymd_and_hms(2024, 8, 28, 0, 0, 0)
-        };
-        let current_date = Utc::now();
-
-        let duration = current_date.signed_duration_since(nu6_date.unwrap());
-        let elapsed_seconds = duration.num_seconds();
-       
-        let additional_blocks = (elapsed_seconds / BLOCK_INTERVAL_SECONDS) as u32;
-        
-        (nu6_height + additional_blocks) - 1000
     }
 
     pub fn get_seed_phrase(&self) -> &str {
@@ -173,6 +155,7 @@ impl PaperWallet {
         ua.encode(&self.network)
     }
 
+    /// The block height a restored wallet scans from. See `checkpoint`.
     pub fn get_estimated_birthday(&self) -> u32 {
         self.birthday.into()
     }
@@ -188,6 +171,14 @@ mod tests {
         let wallet = PaperWallet::new("main", None, None);
         assert!(wallet.is_ok(), "PaperWallet creation failed.");       
         assert!(!wallet.unwrap().seed_phrase.is_empty(), "PaperWallet creation failed: No mnemonic phrase.");       
+    }
+
+    #[test]
+    fn wallet_birthday_comes_from_the_checkpoint() {
+        for (name, network) in [("main", Network::MainNetwork), ("test", Network::TestNetwork)] {
+            let wallet = PaperWallet::new(name, None, None).unwrap();
+            assert_eq!(wallet.get_estimated_birthday(), u32::from(crate::checkpoint::birthday(&network)));
+        }
     }
 
     #[test]

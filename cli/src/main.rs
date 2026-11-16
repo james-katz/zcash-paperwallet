@@ -21,7 +21,7 @@ struct Args {
     /// Exclude receivers, comma separated (transparent,sapling,orchard)
     exclude: Option<Vec<String>>,
     #[arg(short, long)]
-    /// Display a rough estimation of wallet birthday
+    /// Display the wallet birthday: the block height the wallet syncs from
     birthday: bool,
     #[arg(short, long)]
     /// Save generated wallets to file. File type will be guesses from extension. Avaialable formats: [pdf | json]
@@ -123,7 +123,7 @@ fn print_wallets_to_stdout(wallets: Vec<PaperWallet>, args:Args) {
 
         if args.birthday {
             let birthday = wallet.get_estimated_birthday();
-            println!("Wallet birthday: \n{}\n", birthday);
+            println!("Wallet birthday (the wallet syncs from this block): \n{}\n", birthday);
         }
     
         let ufvk = wallet.get_ufvk();
