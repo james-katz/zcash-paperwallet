@@ -26,12 +26,24 @@ const TYPES = {
   '.wasm': 'application/wasm',
 };
 
+// vercel.json can declare headers in two ways: the "headers" array, or a
+// legacy route with "headers" and "continue": true. Both are read here.
 function headerRules() {
   try {
     const config = JSON.parse(fs.readFileSync(VERCEL_JSON, 'utf8'));
-    return (config.headers || []).map((rule) => ({
-      // The sources used in vercel.json are plain "/(.*)" style patterns,
-      // which are valid regular expressions as written.
+    const modern = (config.headers || []).map((rule) => ({
+      source: rule.source,
+      headers: rule.headers.map(({ key, value }) => [key, value]),
+    }));
+    const legacy = (config.routes || [])
+      .filter((route) => route.headers && route.continue)
+      .map((route) => ({
+        source: route.src,
+        headers: Object.entries(route.headers),
+      }));
+    // The sources used in vercel.json are plain "/(.*)" style patterns,
+    // which are valid regular expressions as written.
+    return [...modern, ...legacy].map((rule) => ({
       pattern: new RegExp(`^${rule.source}$`),
       headers: rule.headers,
     }));
@@ -58,7 +70,7 @@ http
     rules
       .filter((rule) => rule.pattern.test(urlPath))
       .forEach((rule) =>
-        rule.headers.forEach(({ key, value }) => response.setHeader(key, value))
+        rule.headers.forEach(([key, value]) => response.setHeader(key, value))
       );
     response.setHeader(
       'Content-Type',
