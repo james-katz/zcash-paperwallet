@@ -15,7 +15,9 @@ function Home({ wasm }) {
 
 const handleEntropyCollected = (entropy) => {    
     setUserEntropy(entropy);
-    const wallet = wasm.generate_wallet_with_salt(userEntropy);
+    // Use the argument: the state set above only updates on the next render,
+    // so reading userEntropy here would still give the empty initial value.
+    const wallet = wasm.generate_wallet_with_salt(entropy);
     setWallets([wallet]);
   };
 

@@ -41,6 +41,20 @@ async function generateFirstWallet(wasm) {
   await screen.findByTestId('wallet-img');
 }
 
+test('feeds the collected pointer entropy to every wallet, the first included', async () => {
+  const wasm = fakeWasm();
+
+  await generateFirstWallet(wasm);
+  await userEvent.click(screen.getByText('Add New Wallet'));
+
+  expect(wasm.generate_wallet_with_salt).toHaveBeenCalledTimes(2);
+  wasm.generate_wallet_with_salt.mock.calls.forEach(([salt]) => {
+    expect(salt).toBeInstanceOf(Uint8Array);
+    expect(salt).toHaveLength(512);
+    expect(Array.from(salt).every((byte) => byte === 7)).toBe(true);
+  });
+});
+
 test('never writes the generated wallet to the console', async () => {
   const spies = spyOnConsole();
 
