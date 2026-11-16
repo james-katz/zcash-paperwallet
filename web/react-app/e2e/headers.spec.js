@@ -48,6 +48,38 @@ test('every response carries the security headers from vercel.json', async ({ re
   }
 });
 
+test('a missing build asset is a 404, as on the live site', async ({ request }) => {
+  expect((await request.get('/static/does-not-exist.js')).status()).toBe(404);
+  expect((await request.get('/about')).status()).toBe(200);
+});
+
+// Headers declared by a vercel.json for every path, in either syntax.
+function declaredHeaders(file) {
+  const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const found = {};
+  for (const rule of config.headers || []) {
+    if (rule.source === '/(.*)') {
+      rule.headers.forEach(({ key, value }) => { found[key.toLowerCase()] = value; });
+    }
+  }
+  for (const route of config.routes || []) {
+    if (route.src === '/(.*)' && route.headers && route.continue) {
+      Object.entries(route.headers).forEach(([key, value]) => { found[key.toLowerCase()] = value; });
+    }
+  }
+  return found;
+}
+
+// Which file Vercel reads depends on the Root Directory of the project, so
+// both carry the headers and neither may drift.
+test('both vercel.json files declare exactly the expected headers', () => {
+  const appRoot = path.resolve(__dirname, '..', 'vercel.json');
+  const repoRoot = path.resolve(__dirname, '..', '..', '..', 'vercel.json');
+
+  expect(declaredHeaders(appRoot)).toEqual(EXPECTED);
+  expect(declaredHeaders(repoRoot)).toEqual(EXPECTED);
+});
+
 test('the bundle has no inline script or style for the policy to block', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'build', 'index.html'), 'utf8');
 
