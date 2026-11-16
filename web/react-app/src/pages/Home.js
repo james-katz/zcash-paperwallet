@@ -16,7 +16,6 @@ function Home({ wasm }) {
 const handleEntropyCollected = (entropy) => {    
     setUserEntropy(entropy);
     const wallet = wasm.generate_wallet_with_salt(userEntropy);
-    console.log(wallet);
     setWallets([wallet]);
   };
 
