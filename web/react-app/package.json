@@ -19,6 +19,7 @@
     "lint": "eslint src --ext .js --max-warnings 0",
     "test": "react-scripts test",
     "test:e2e": "playwright test",
+    "test:scripts": "node --test ../../scripts/update-checkpoint.test.mjs ../../scripts/wasm-vectors.test.mjs",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

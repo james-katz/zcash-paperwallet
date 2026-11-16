@@ -9,10 +9,10 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly generate_wallet_from_entropy: (a: number, b: number) => any;
   readonly generate_wallet_with_salt: (a: number, b: number) => any;
+  readonly rustsecp256k1_v0_8_1_default_error_callback_fn: (a: number, b: number) => void;
+  readonly rustsecp256k1_v0_8_1_default_illegal_callback_fn: (a: number, b: number) => void;
   readonly rustsecp256k1_v0_8_1_context_create: (a: number) => number;
   readonly rustsecp256k1_v0_8_1_context_destroy: (a: number) => void;
-  readonly rustsecp256k1_v0_8_1_default_illegal_callback_fn: (a: number, b: number) => void;
-  readonly rustsecp256k1_v0_8_1_default_error_callback_fn: (a: number, b: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
   readonly __externref_table_alloc: () => number;
   readonly __wbindgen_export_2: WebAssembly.Table;
