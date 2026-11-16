@@ -2,8 +2,10 @@ import React from "react";
 import "./WalletCard.css";
 import QRCodeGenerator from "./QRCodeGenerator";
 
+// Shown in place of the phrase. If a print ever goes out without the words,
+// this is what lands on the paper, so it has to make sense there as well.
 export const SEED_HIDDEN_TEXT =
-  "Hidden on screen. The 24 words appear on the printed page.";
+  "Hidden on screen. If you are reading this on paper, the print failed: do not use this wallet.";
 
 function WalletCard({ wallet, showSeed = false }) {
   return (

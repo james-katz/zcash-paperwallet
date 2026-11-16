@@ -39,10 +39,13 @@ export const NO_SEED_QR_NOTE = [
   "or scan these words.",
 ];
 
+// Drawn while the words are masked. If a print ever goes out like that, this
+// is what lands on the paper, so it has to make sense there as well.
 export const SEED_HIDDEN_NOTE = [
   "Words hidden on screen.",
-  "They appear on the",
-  "printed page.",
+  "Reading this on paper?",
+  "The print failed.",
+  "Do not use this wallet.",
 ];
 
 function printFrameNote(ctx, lines) {
