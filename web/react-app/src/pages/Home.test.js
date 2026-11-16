@@ -160,3 +160,13 @@ test('the Print button puts the phrase on the page before the print dialog opens
     window.print = realPrint;
   }
 });
+
+test('the note tells people to check the paper, and says so when the phrase is on screen', async () => {
+  await generateFirstWallet(fakeWasm());
+  expect(pageText()).toMatch(/check that the 24 words are on the paper before you send funds/i);
+  expect(pageText()).toMatch(/hidden on screen/i);
+
+  await userEvent.click(screen.getByText('Show recovery phrase'));
+  expect(pageText()).not.toMatch(/hidden on screen/i);
+  expect(pageText()).toMatch(/recovery phrase is on screen/i);
+});

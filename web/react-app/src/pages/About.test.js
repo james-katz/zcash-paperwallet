@@ -18,3 +18,9 @@ test('tells people to print on paper and what to do without a printer', () => {
   expect(pageText()).toMatch(/do not choose .Save as PDF./i);
   expect(pageText()).toMatch(/copy the 24 words by hand/i);
 });
+
+test('tells people to check the printed words before sending funds', () => {
+  render(<About />);
+
+  expect(pageText()).toMatch(/check that all 24 words are on the paper before you send any funds/i);
+});

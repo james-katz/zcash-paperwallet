@@ -40,6 +40,9 @@ const About = () => {
               The recovery phrase is hidden on screen and appears on the printed page.
             </li>
             <li>
+              Check that all 24 words are on the paper before you send any funds. If they are not, do not use that wallet.
+            </li>
+            <li>
               Do not choose "Save as PDF", and do not save or screenshot the wallet image. A file that holds your
               recovery phrase can be copied, synced to a cloud or read by other software.
             </li>

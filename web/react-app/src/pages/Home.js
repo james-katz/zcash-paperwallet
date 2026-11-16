@@ -79,10 +79,17 @@ const handleEntropyCollected = (entropy) => {
           </button>
           <input type="checkbox" onChange={handleCheckBox} id="textOnly"></input><label htmlFor="textOnly">Text only</label>
          </div>
-        <p className="seed-note">
-          The recovery phrase is hidden on screen and appears on the printed page.
-          No printer? Show it, copy the 24 words by hand, then hide it again.
-        </p>
+        {showSeed ? (
+          <p className="seed-note">
+            The recovery phrase is on screen. Hide it as soon as you are done.
+          </p>
+        ) : (
+          <p className="seed-note">
+            The recovery phrase is hidden on screen and appears on the printed page.
+            Check that the 24 words are on the paper before you send funds.
+            No printer? Show it, copy the 24 words by hand, then hide it again.
+          </p>
+        )}
         <div className="print-area">
           {wallets.map((wallet, index) => (
             <React.Fragment key={index}>
