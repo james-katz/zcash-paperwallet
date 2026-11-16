@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import WalletCard from "../components/WalletCard";
 import WalletCardImg from "../components/WalletCardImg";
 import EntropyCollector from "../components/EntropyCollector";
@@ -8,10 +8,6 @@ function Home({ wasm }) {
   const [wallets, setWallets] = useState([]);
   const [userEntropy, setUserEntropy] = useState([]);
   const [textOnly, setTextOnly] = useState(false);
-
-  // useEffect(() => {
-
-  // }, [textOnly]);
 
 const handleEntropyCollected = (entropy) => {    
     setUserEntropy(entropy);
@@ -43,22 +39,20 @@ const handleEntropyCollected = (entropy) => {
         <div className="buttons">
           <button onClick={addNewWallet}>Add New Wallet</button>
           <button onClick={printWallets}>Print</button>
-          <input type="checkbox" onChange={handleCheckBox} id="textOnly"></input><label for="textOnly">Text only</label>
+          <input type="checkbox" onChange={handleCheckBox} id="textOnly"></input><label htmlFor="textOnly">Text only</label>
          </div>
         <div className="print-area">
           {wallets.map((wallet, index) => (
-            <>
+            <React.Fragment key={index}>
               {textOnly ? (
                 <>
-                  <WalletCard key={index} wallet={wallet} />
-                  <div class="pagebreak"></div>
+                  <WalletCard wallet={wallet} />
+                  <div className="pagebreak"></div>
                 </>
               ) : (
-                <>
-                  <WalletCardImg key={index} wallet={wallet} />
-                </>
+                <WalletCardImg wallet={wallet} />
               )}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </>

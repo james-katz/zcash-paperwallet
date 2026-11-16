@@ -15,7 +15,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build:wasm": "rm -rf src/wasm && cd .. && wasm-pack build --target web --release --out-dir ./react-app/src/wasm  && rm -f ./react-app/src/wasm/.gitignore",
-    "build": "CI=false react-scripts build",
+    "build": "react-scripts build",
+    "lint": "eslint src --ext .js --max-warnings 0",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -24,6 +25,9 @@
       "react-app",
       "react-app/jest"
     ],
+    "rules": {
+      "no-console": "error"
+    },
     "ignorePatterns": [
       "src/wasm/"
     ]

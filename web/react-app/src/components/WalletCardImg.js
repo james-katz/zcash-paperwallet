@@ -2,31 +2,6 @@ import React, { useRef, useEffect } from "react";
 import QRCode from "qrcode";
 import "./WalletCardImg.css";
 
-function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight) {
-    const words = text.split("");
-    let line = "";
-    let currentY = y;
-   
-    ctx.font = `${fontSize}px Roboto Sans`;
-
-    for (let i = 0; i < words.length; i++) {
-      const testLine = line + words[i];
-      const testWidth = ctx.measureText(testLine).width;
-  
-      if (testWidth > maxWidth && i > 0) {
-        // Draw the current line and move to the next
-        ctx.fillText(line, x, currentY);
-        line = words[i]; // Start a new line
-        currentY += lineHeight; // Move down by line height
-      } else {
-        line = testLine;
-      }
-    }
-  
-    // Draw the remaining text
-    ctx.fillText(line, x, currentY);
-} 
-
 function printRecoveryPhrase(ctx, seed) {
   const startX = 1150;
   const startY = 219;
@@ -41,7 +16,7 @@ function printRecoveryPhrase(ctx, seed) {
   // words[11] = "refrigerator"; // Test long word
 
   for(let i = 0; i < words.length; i ++) {
-    if(i == 12) {
+    if(i === 12) {
       currentX = startX + 180;
       currentY = startY;
     } 
@@ -74,12 +49,6 @@ const WalletCardImg = ({ wallet }) => {
 
         // Draw the background image
         ctx.drawImage(bgImage, 0, 0);
-
-        // Add ufvk text
-        // drawWrappedText(ctx, wallet.ufvk, 180, 210, 430, 12, 12);
-
-        // Add address text
-        // drawWrappedText(ctx, wallet.address, 80, 685, 355, 24, 25);
 
         /*
         // Add reference address text, rotated
