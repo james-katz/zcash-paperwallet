@@ -110,3 +110,53 @@ test('image mode hides the phrase the same way', async () => {
   await userEvent.click(screen.getByText('Show recovery phrase'));
   expect(card).toHaveAttribute('data-show-seed', 'true');
 });
+
+test('adding a wallet hides the recovery phrase again', async () => {
+  await generateFirstWallet(fakeWasm());
+  await userEvent.click(screen.getByLabelText('Text only'));
+  await userEvent.click(screen.getByText('Show recovery phrase'));
+  expect(pageText()).toContain(FAKE_WALLET.seed);
+
+  // The new wallet has a phrase nobody asked to see yet.
+  await userEvent.click(screen.getByText('Add New Wallet'));
+  expect(pageText()).not.toContain(FAKE_WALLET.seed);
+  expect(screen.getByText('Show recovery phrase')).toBeInTheDocument();
+});
+
+test('the phrase can be hidden even if the browser never reports the end of the print job', async () => {
+  await generateFirstWallet(fakeWasm());
+  await userEvent.click(screen.getByLabelText('Text only'));
+
+  fireEvent(window, new Event('beforeprint'));
+  expect(pageText()).toContain(FAKE_WALLET.seed);
+
+  await userEvent.click(screen.getByText('Hide recovery phrase'));
+  expect(pageText()).not.toContain(FAKE_WALLET.seed);
+});
+
+test('a print job ends with the phrase hidden, even if it was shown before', async () => {
+  await generateFirstWallet(fakeWasm());
+  await userEvent.click(screen.getByLabelText('Text only'));
+  await userEvent.click(screen.getByText('Show recovery phrase'));
+
+  fireEvent(window, new Event('beforeprint'));
+  fireEvent(window, new Event('afterprint'));
+
+  expect(pageText()).not.toContain(FAKE_WALLET.seed);
+});
+
+test('the Print button puts the phrase on the page before the print dialog opens', async () => {
+  const realPrint = window.print;
+  let phraseOnPageAtPrint = false;
+  window.print = () => { phraseOnPageAtPrint = pageText().includes(FAKE_WALLET.seed); };
+
+  try {
+    await generateFirstWallet(fakeWasm());
+    await userEvent.click(screen.getByLabelText('Text only'));
+    await userEvent.click(screen.getByText('Print'));
+
+    expect(phraseOnPageAtPrint).toBe(true);
+  } finally {
+    window.print = realPrint;
+  }
+});

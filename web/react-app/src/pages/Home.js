@@ -15,11 +15,20 @@ function Home({ wasm }) {
   const [printing, setPrinting] = useState(false);
   const showSeed = seedVisible || printing;
 
+  // Every path that takes the phrase off the screen goes through here.
+  const hideSeed = () => {
+    setSeedVisible(false);
+    setPrinting(false);
+  };
+
   useEffect(() => {
     // The browser takes the print snapshot as soon as beforeprint returns,
     // so the render that adds the phrase has to finish inside the handler.
     const onBeforePrint = () => flushSync(() => setPrinting(true));
-    const onAfterPrint = () => setPrinting(false);
+    // A print job always ends with the phrase hidden, shown before or not.
+    // No other signal is used to end it: hiding too early would print a
+    // page without the words. If afterprint never comes, the button hides it.
+    const onAfterPrint = () => hideSeed();
 
     window.addEventListener("beforeprint", onBeforePrint);
     window.addEventListener("afterprint", onAfterPrint);
@@ -38,11 +47,16 @@ const handleEntropyCollected = (entropy) => {
   };
 
   const addNewWallet = () => {
+    // Nobody asked to see the phrase of the wallet that is about to exist.
+    hideSeed();
     const wallet = wasm.generate_wallet_with_salt(userEntropy);
     setWallets((prev) => [...prev, wallet]);
   };
 
   const printWallets = () => {
+    // Do not depend on beforeprint for the button: put the phrase on the
+    // page first, then open the print dialog.
+    flushSync(() => setPrinting(true));
     window.print();
   };
 
@@ -59,8 +73,9 @@ const handleEntropyCollected = (entropy) => {
         <div className="buttons">
           <button onClick={addNewWallet}>Add New Wallet</button>
           <button onClick={printWallets}>Print</button>
-          <button onClick={() => setSeedVisible((visible) => !visible)} aria-pressed={seedVisible}>
-            {seedVisible ? "Hide recovery phrase" : "Show recovery phrase"}
+          {/* The button follows what is on the page, so it can always hide it. */}
+          <button onClick={() => (showSeed ? hideSeed() : setSeedVisible(true))} aria-pressed={showSeed}>
+            {showSeed ? "Hide recovery phrase" : "Show recovery phrase"}
           </button>
           <input type="checkbox" onChange={handleCheckBox} id="textOnly"></input><label htmlFor="textOnly">Text only</label>
          </div>
