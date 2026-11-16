@@ -42,7 +42,9 @@ function WalletCard({ wallet, showSeed = false }) {
             <p className="text-content">
               {showSeed ? wallet.seed : SEED_HIDDEN_TEXT}
             </p>
-            <p className="text-content">Wallet birthday: {wallet.birthday}</p>
+            <p className="text-content">
+              Wallet birthday: {wallet.birthday}. The wallet syncs from this block.
+            </p>
           </div>
         </div>
       </div>
