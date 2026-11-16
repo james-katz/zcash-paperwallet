@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import WalletCard from "../components/WalletCard";
 import WalletCardImg from "../components/WalletCardImg";
@@ -14,6 +14,8 @@ function Home({ wasm }) {
   const [seedVisible, setSeedVisible] = useState(false);
   const [printing, setPrinting] = useState(false);
   const showSeed = seedVisible || printing;
+  // Set by beforeprint: tells the Print button whether a print job began.
+  const printJobStarted = useRef(false);
 
   // Every path that takes the phrase off the screen goes through here.
   const hideSeed = () => {
@@ -24,7 +26,10 @@ function Home({ wasm }) {
   useEffect(() => {
     // The browser takes the print snapshot as soon as beforeprint returns,
     // so the render that adds the phrase has to finish inside the handler.
-    const onBeforePrint = () => flushSync(() => setPrinting(true));
+    const onBeforePrint = () => {
+      printJobStarted.current = true;
+      flushSync(() => setPrinting(true));
+    };
     // A print job always ends with the phrase hidden, shown before or not.
     // No other signal is used to end it: hiding too early would print a
     // page without the words. If afterprint never comes, the button hides it.
@@ -39,6 +44,8 @@ function Home({ wasm }) {
   }, []);
 
 const handleEntropyCollected = (entropy) => {
+    // A wallet is never born with its phrase on screen.
+    hideSeed();
     setUserEntropy(entropy);
     // Use the argument: the state set above only updates on the next render,
     // so reading userEntropy here would still give the empty initial value.
@@ -56,8 +63,17 @@ const handleEntropyCollected = (entropy) => {
   const printWallets = () => {
     // Do not depend on beforeprint for the button: put the phrase on the
     // page first, then open the print dialog.
+    printJobStarted.current = false;
     flushSync(() => setPrinting(true));
-    window.print();
+    try {
+      window.print();
+    } catch (error) {
+      // No printing here. Falls through to take the phrase back off.
+    }
+    // Where window.print() does nothing (an in-app browser, for example) no
+    // print job began, so the click must not leave the phrase on screen.
+    // A job that did begin is ended by afterprint or by the Hide button.
+    if (!printJobStarted.current) setPrinting(false);
   };
 
   const handleCheckBox = (e) => {

@@ -170,3 +170,61 @@ test('the note tells people to check the paper, and says so when the phrase is o
   expect(pageText()).not.toMatch(/hidden on screen/i);
   expect(pageText()).toMatch(/recovery phrase is on screen/i);
 });
+
+// Runs `body` with window.print replaced, then puts the real one back.
+async function withPrint(fakePrint, body) {
+  const realPrint = window.print;
+  window.print = fakePrint;
+  try {
+    await body();
+  } finally {
+    window.print = realPrint;
+  }
+}
+
+test('the Print button takes the phrase back off the page when no print job starts', async () => {
+  // An in-app browser where window.print does nothing.
+  await withPrint(() => {}, async () => {
+    await generateFirstWallet(fakeWasm());
+    await userEvent.click(screen.getByLabelText('Text only'));
+    await userEvent.click(screen.getByText('Print'));
+
+    expect(pageText()).not.toContain(FAKE_WALLET.seed);
+    expect(screen.getByText('Show recovery phrase')).toBeInTheDocument();
+  });
+});
+
+test('the Print button survives a browser that cannot print', async () => {
+  await withPrint(() => { throw new Error('printing is not supported'); }, async () => {
+    await generateFirstWallet(fakeWasm());
+    await userEvent.click(screen.getByLabelText('Text only'));
+    await userEvent.click(screen.getByText('Print'));
+
+    expect(pageText()).not.toContain(FAKE_WALLET.seed);
+    expect(screen.getByText('Add New Wallet')).toBeInTheDocument();
+  });
+});
+
+test('the phrase stays on the page while a print job that started is open', async () => {
+  // The job starts (beforeprint) and has not ended yet (no afterprint).
+  await withPrint(() => window.dispatchEvent(new Event('beforeprint')), async () => {
+    await generateFirstWallet(fakeWasm());
+    await userEvent.click(screen.getByLabelText('Text only'));
+    await userEvent.click(screen.getByText('Print'));
+
+    expect(pageText()).toContain(FAKE_WALLET.seed);
+
+    fireEvent(window, new Event('afterprint'));
+    expect(pageText()).not.toContain(FAKE_WALLET.seed);
+  });
+});
+
+test('the first wallet starts hidden even after a stray print event', async () => {
+  render(<Home wasm={fakeWasm()} />);
+  fireEvent(window, new Event('beforeprint'));
+
+  await userEvent.click(screen.getByText('finish collecting'));
+  await userEvent.click(await screen.findByLabelText('Text only'));
+
+  expect(pageText()).not.toContain(FAKE_WALLET.seed);
+});

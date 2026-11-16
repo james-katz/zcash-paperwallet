@@ -205,3 +205,38 @@ test('the pointer path reaches the wallet', async ({ page }) => {
   expect(first).toMatch(/^u1/);
   expect(second).not.toBe(first);
 });
+
+test('a real print job has the phrase on the page for the snapshot, and not after', async ({ page }) => {
+  await generateWallet(page);
+  await page.getByLabel('Text only').check();
+
+  // Registered after the page's own beforeprint listener, so it runs after
+  // it: this is the state the browser snapshots for the printed page.
+  await page.evaluate(() => {
+    const phraseOnPage = () =>
+      Array.from(document.querySelectorAll('.wallet-card p')).some((p) =>
+        /^([a-z]+ ){23}[a-z]+$/.test(p.textContent.trim())
+      );
+    window.__phraseOnPage = phraseOnPage;
+    window.addEventListener('beforeprint', () => {
+      window.__phraseAtSnapshot = phraseOnPage();
+    });
+  });
+
+  await page.pdf({ format: 'A4' });
+
+  expect(await page.evaluate(() => window.__phraseAtSnapshot)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__phraseOnPage())).toBe(false);
+});
+
+test('the Print button shows nothing where printing does nothing', async ({ page }) => {
+  await generateWallet(page);
+  await page.getByLabel('Text only').check();
+
+  // An in-app browser: window.print exists and does nothing.
+  await page.evaluate(() => { window.print = () => {}; });
+  await page.getByRole('button', { name: 'Print' }).click();
+
+  await expect(page.getByText('Hidden on screen.')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Show recovery phrase' })).toBeVisible();
+});
