@@ -30,6 +30,29 @@ function printRecoveryPhrase(ctx, seed) {
 
 }
 
+// Fills the frame where the template expected a QR code of the phrase.
+export const NO_SEED_QR_NOTE = [
+  "No QR code here,",
+  "on purpose.",
+  "Never photograph",
+  "or scan these words.",
+];
+
+function printNoSeedQrNote(ctx) {
+  const centerX = 1271; // middle of the 266 px frame that starts at x 1138
+  let currentY = 655;
+
+  ctx.save();
+  ctx.font = "22px Sans";
+  ctx.fillStyle = "#000";
+  ctx.textAlign = "center";
+  NO_SEED_QR_NOTE.forEach((line) => {
+    ctx.fillText(line, centerX, currentY);
+    currentY += 30;
+  });
+  ctx.restore();
+}
+
 const WalletCardImg = ({ wallet }) => {
   const canvasRef = useRef(null);
 
@@ -78,14 +101,14 @@ const WalletCardImg = ({ wallet }) => {
         const addrQrCanvas = document.createElement("canvas");
         await QRCode.toCanvas(addrQrCanvas, wallet.address, { width: 265});
 
-        // Generate and add QR code for the recovery phrase
-        const seedQrCanvas = document.createElement("canvas");
-        await QRCode.toCanvas(seedQrCanvas, wallet.seed, { width: 266});
+        // No QR code for the recovery phrase: a QR is made to be photographed,
+        // and the phrase must only ever exist as words on the printed paper.
+        // The template still has a frame for it, so say why it is empty.
+        printNoSeedQrNote(ctx);
 
         // Draw the QR code on the main canvas
         ctx.drawImage(ufvkQrCanvas, 95, 173); // UFVK
         ctx.drawImage(addrQrCanvas, 630, 191); // Unified Address
-        ctx.drawImage(seedQrCanvas, 1138, 561); // Recovery Phrase
       };
     };
 

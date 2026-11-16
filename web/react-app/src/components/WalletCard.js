@@ -34,7 +34,6 @@ function WalletCard({ wallet }) {
           <strong>Recovery Phrase</strong>
         </div>
         <div class="content">
-          <QRCodeGenerator class="qr-code" data={wallet.seed} scale="3" />
           <p class="text-content">
             {wallet.seed}
             <p class="text-centent">Wallet birthday: {wallet.birthday}</p>
