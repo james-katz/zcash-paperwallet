@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Home from './Home';
 import {
@@ -27,7 +27,11 @@ jest.mock('../components/WalletCardImg', () => {
   const React = require('react');
   return {
     __esModule: true,
-    default: () => React.createElement('div', { 'data-testid': 'wallet-img' }),
+    default: ({ showSeed }) =>
+      React.createElement('div', {
+        'data-testid': 'wallet-img',
+        'data-show-seed': String(Boolean(showSeed)),
+      }),
   };
 });
 
@@ -62,4 +66,47 @@ test('never writes the generated wallet to the console', async () => {
   await userEvent.click(screen.getByText('Add New Wallet'));
 
   expect(consoleLeaks(spies)).toEqual([]);
+});
+
+const pageText = () => document.body.textContent;
+
+test('text mode keeps the recovery phrase off the screen until asked', async () => {
+  await generateFirstWallet(fakeWasm());
+  await userEvent.click(screen.getByLabelText('Text only'));
+
+  expect(pageText()).toContain(FAKE_WALLET.address);
+  expect(pageText()).not.toContain(FAKE_WALLET.seed);
+
+  await userEvent.click(screen.getByText('Show recovery phrase'));
+  expect(pageText()).toContain(FAKE_WALLET.seed);
+
+  await userEvent.click(screen.getByText('Hide recovery phrase'));
+  expect(pageText()).not.toContain(FAKE_WALLET.seed);
+});
+
+test('text mode puts the phrase on the page only for the print job', async () => {
+  await generateFirstWallet(fakeWasm());
+  await userEvent.click(screen.getByLabelText('Text only'));
+
+  // The browser takes the print snapshot right after beforeprint returns,
+  // so the phrase has to be there with no waiting.
+  fireEvent(window, new Event('beforeprint'));
+  expect(pageText()).toContain(FAKE_WALLET.seed);
+
+  fireEvent(window, new Event('afterprint'));
+  expect(pageText()).not.toContain(FAKE_WALLET.seed);
+});
+
+test('image mode hides the phrase the same way', async () => {
+  await generateFirstWallet(fakeWasm());
+  const card = screen.getByTestId('wallet-img');
+  expect(card).toHaveAttribute('data-show-seed', 'false');
+
+  fireEvent(window, new Event('beforeprint'));
+  expect(card).toHaveAttribute('data-show-seed', 'true');
+  fireEvent(window, new Event('afterprint'));
+  expect(card).toHaveAttribute('data-show-seed', 'false');
+
+  await userEvent.click(screen.getByText('Show recovery phrase'));
+  expect(card).toHaveAttribute('data-show-seed', 'true');
 });

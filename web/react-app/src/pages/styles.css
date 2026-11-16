@@ -104,3 +104,10 @@ footer {
     color: #666;
 }
   
+.seed-note {
+    max-width: 640px;
+    margin: 0 auto 20px;
+    text-align: center;
+    font-size: 14px;
+    color: #44330b;
+}
