@@ -48,6 +48,13 @@ test('every response carries the security headers from vercel.json', async ({ re
   }
 });
 
+// A browser that translates the page sends its text to a translation service.
+test('the served page asks browsers not to translate it', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('translate', 'no');
+  await expect(page.locator('meta[name="google"]')).toHaveAttribute('content', 'notranslate');
+});
+
 test('a missing build asset is a 404, as on the live site', async ({ request }) => {
   expect((await request.get('/static/does-not-exist.js')).status()).toBe(404);
   expect((await request.get('/about')).status()).toBe(200);
