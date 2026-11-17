@@ -311,3 +311,13 @@ test('the pointer trail is drawn without the network', async ({ page, context })
   await expect(dot).toBeAttached();
   expect(await dot.evaluate((node) => getComputedStyle(node).backgroundImage)).toMatch(/^url\("data:image\/png/);
 });
+
+// The page used to stay on "Loading..." for good when the generator failed.
+test('a generator that does not load is reported, not waited for', async ({ page }) => {
+  await page.route('**/*.wasm', (route) => route.abort());
+  await page.goto('/');
+
+  await expect(page.getByRole('alert')).toContainText('The wallet generator did not load');
+  await expect(page.getByText('Loading...')).toHaveCount(0);
+  await expect(page.getByText('Move your mouse to gather entropy')).toHaveCount(0);
+});

@@ -8,6 +8,7 @@ import initWasm, { generate_wallet_with_salt } from "./wasm/web";
 
 function App() {
   const [wasm, setWasm] = React.useState(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
 
   React.useEffect(() => {
     // Fetch the card template now, while the page is still loading. People
@@ -16,7 +17,15 @@ function App() {
     loadTemplate().catch(() => {});
 
     const loadWasm = async () => {
-      await initWasm();
+      try {
+        await initWasm();
+      } catch (error) {
+        // An old browser that refuses WebAssembly under the page's security
+        // policy, or a .wasm file that did not arrive. Say so: the page used
+        // to stay on "Loading..." for good.
+        setLoadFailed(true);
+        return;
+      }
       // Hand out the typed wrapper, not what initWasm() resolves to. That is
       // the raw export table: its functions take a pointer and a length, and
       // a Uint8Array passed to them is read as an empty slice, so the
@@ -25,6 +34,15 @@ function App() {
     };
     loadWasm();
   }, []);
+
+  if (loadFailed) {
+    return (
+      <div className="load-error" role="alert">
+        The wallet generator did not load in this browser. No wallet was made.
+        Update the browser or use another one, then open this page again.
+      </div>
+    );
+  }
 
   if (!wasm) {
     return <div>Loading...</div>;
