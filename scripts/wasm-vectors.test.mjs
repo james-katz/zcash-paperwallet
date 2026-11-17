@@ -74,6 +74,15 @@ test('a salted wallet is a fresh 24 word phrase each time', () => {
   assert.equal(first.birthday, wallet.birthday);
 });
 
+// Panic messages carry the path of the source file they come from. Built
+// without scripts/build-wasm.sh, that is the home directory of the builder.
+test('the shipped WASM names no directory of the machine that built it', () => {
+  const text = readFileSync(path.join(root, 'web', 'react-app', 'src', 'wasm', 'web_bg.wasm')).toString('latin1');
+  const local = text.match(/\/(?:home|Users|root|mnt)\/[\w.-]+|[A-Za-z]:\\Users\\[\w.-]+/g) ?? [];
+  assert.deepEqual([...new Set(local)], []);
+  assert.ok(text.includes('/cargo/registry/src/'), 'the remapped registry path is missing');
+});
+
 // With the random source pinned, the caller's bytes are the only input left.
 test('the typed wrapper mixes the caller entropy into the wallet', () => {
   const real = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(globalThis.crypto), 'getRandomValues');
