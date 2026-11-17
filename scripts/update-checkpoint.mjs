@@ -7,6 +7,8 @@
 //
 // The tip is read from two independent explorers. They must agree within a
 // few blocks, the lower height is kept, and the checkpoint never moves back.
+// It never moves further ahead than MAX_BLOCKS_PER_DAY allows either, and
+// --check fails on a checkpoint dated in the future.
 // Run it before every release, then rebuild the WASM.
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -40,6 +42,7 @@ export const DEFAULT_MAX_AGE_DAYS = 7;
 
 const HEIGHT_RE = /(pub const CHECKPOINT_HEIGHT_MAIN: u32 = )([0-9_]+)(;)/;
 const DATE_RE = /(pub const CHECKPOINT_DATE: &str = ")([0-9]{4}-[0-9]{2}-[0-9]{2})(";)/;
+const MAX_PER_DAY_RE = /pub const MAX_BLOCKS_PER_DAY: u32 = ([0-9_]+);/;
 
 /** Reads the current checkpoint out of the Rust source. */
 export function readCheckpoint(source) {
@@ -74,7 +77,30 @@ export function rustInt(value) {
   return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '_');
 }
 
-/** Returns the Rust source with the new height and date. Never moves back. */
+/** Reads MAX_BLOCKS_PER_DAY out of the Rust source, so there is one copy. */
+export function readMaxBlocksPerDay(source) {
+  const match = MAX_PER_DAY_RE.exec(source);
+  if (!match) {
+    throw new Error('MAX_BLOCKS_PER_DAY not found in checkpoint.rs');
+  }
+  return Number(match[1].replaceAll('_', ''));
+}
+
+/** Whole days from one ISO day to another. Negative when `to` is earlier. */
+export function daysBetween(from, to) {
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    throw new Error(`not an ISO day: ${Number.isNaN(start) ? from : to}`);
+  }
+  return Math.round((end - start) / 86_400_000);
+}
+
+/**
+ * Returns the Rust source with the new height and date. Never moves back,
+ * and never further ahead than the chain can have gone since the checkpoint
+ * that is already there: a height above the real tip would hide funds.
+ */
 export function rewrite(source, height, date) {
   const current = readCheckpoint(source);
   if (height < current.height) {
@@ -82,6 +108,17 @@ export function rewrite(source, height, date) {
   }
   if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)) {
     throw new Error(`not an ISO day: ${date}`);
+  }
+  const days = daysBetween(current.date, date);
+  if (days < 0) {
+    throw new Error(`${date} is before the current checkpoint date, ${current.date}`);
+  }
+  const ceiling = current.height + (days + 1) * readMaxBlocksPerDay(source);
+  if (height > ceiling) {
+    throw new Error(
+      `${height} is a height the chain cannot have reached: at most ${ceiling} by ${date}, ` +
+        `counting from ${current.height} on ${current.date}`
+    );
   }
   return source
     .replace(HEIGHT_RE, (_, before, __, after) => before + rustInt(height) + after)
@@ -95,6 +132,23 @@ export function ageInDays(date, now = new Date()) {
     throw new Error(`not an ISO day: ${date}`);
   }
   return Math.floor((now.getTime() - then) / 86_400_000);
+}
+
+/** The age of the checkpoint in days, or an error if it fails `--check`. */
+export function checkAge(current, maxAge, now = new Date()) {
+  if (!Number.isFinite(maxAge) || maxAge < 0) {
+    throw new Error('--max-age-days needs a number of days');
+  }
+  const age = ageInDays(current.date, now);
+  if (age < 0) {
+    throw new Error(`checkpoint date ${current.date} is in the future. Check it, and the clock of this machine.`);
+  }
+  if (age > maxAge) {
+    throw new Error(
+      `checkpoint ${current.height} is ${age} days old (limit ${maxAge}). Run this script without --check.`
+    );
+  }
+  return age;
 }
 
 async function fetchHeight(source) {
@@ -115,12 +169,7 @@ async function main(argv) {
   if (argv.includes('--check')) {
     const flag = argv.indexOf('--max-age-days');
     const maxAge = flag === -1 ? DEFAULT_MAX_AGE_DAYS : Number(argv[flag + 1]);
-    const age = ageInDays(current.date);
-    if (!(age <= maxAge)) {
-      throw new Error(
-        `checkpoint ${current.height} is ${age} days old (limit ${maxAge}). Run this script without --check.`
-      );
-    }
+    const age = checkAge(current, maxAge);
     console.log(`checkpoint ${current.height} from ${current.date} is ${age} days old: ok`);
     return;
   }

@@ -22,6 +22,12 @@ pub const CHECKPOINT_DATE: &str = "2026-11-16";
 /// block spacing measured on mainnet in November 2026.
 pub const BIRTHDAY_MARGIN: u32 = 7_000;
 
+/// Most blocks the chain is allowed to gain in one day when a checkpoint is
+/// checked: twice the 25 second spacing above (86 400 / 12.5). A checkpoint
+/// further ahead than this is a typo or a wrong source, and a birthday above
+/// the real tip hides funds. `scripts/update-checkpoint.mjs` reads this value.
+pub const MAX_BLOCKS_PER_DAY: u32 = 6_912;
+
 /// The height the birthday is counted back from.
 ///
 /// Testnet has no tip source wired in, so it uses the NU6 activation height
@@ -79,5 +85,47 @@ mod tests {
         assert_eq!(parts.len(), 3);
         assert!(parts.iter().all(|p| p.chars().all(|c| c.is_ascii_digit())));
         assert_eq!((parts[0].len(), parts[1].len(), parts[2].len()), (4, 2, 2));
+    }
+
+    /// The first checkpoint, read on two explorers that agreed. Later ones
+    /// are checked against it. Do not move it when the checkpoint moves.
+    const ANCHOR_HEIGHT: u32 = 3_580_609;
+    const ANCHOR_DATE: &str = "2026-11-16";
+
+    /// Days since 1970-01-01 for an ISO day (proleptic Gregorian calendar).
+    fn days_since_epoch(iso_day: &str) -> i64 {
+        let parts: Vec<i64> = iso_day.split('-').map(|p| p.parse().unwrap()).collect();
+        let (year, month, day) = (parts[0], parts[1], parts[2]);
+        let year = if month <= 2 { year - 1 } else { year };
+        let era = year.div_euclid(400);
+        let year_of_era = year.rem_euclid(400);
+        let day_of_year = (153 * ((month + 9) % 12) + 2) / 5 + day - 1;
+        let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+        era * 146_097 + day_of_era - 719_468
+    }
+
+    #[test]
+    fn days_are_counted_from_the_unix_epoch() {
+        assert_eq!(days_since_epoch("1970-01-01"), 0);
+        assert_eq!(days_since_epoch("2000-03-01"), 11_017);
+        assert_eq!(days_since_epoch(ANCHOR_DATE), 20_773);
+    }
+
+    // Catches a checkpoint edited by hand into something the chain cannot
+    // have reached, an extra digit for example. The bound gets looser as the
+    // anchor ages; the update script checks each step against the last one.
+    #[test]
+    fn mainnet_checkpoint_is_a_height_the_chain_can_have_reached() {
+        let days = days_since_epoch(CHECKPOINT_DATE) - days_since_epoch(ANCHOR_DATE);
+        assert!(days >= 0, "checkpoint date is before the anchor");
+        // The height wallets are really built from, not the constant itself.
+        let height = u32::from(checkpoint_height(&Network::MainNetwork));
+        assert!(height >= ANCHOR_HEIGHT, "checkpoint is below the anchor");
+
+        let ceiling = i64::from(ANCHOR_HEIGHT) + (days + 1) * i64::from(MAX_BLOCKS_PER_DAY);
+        assert!(
+            i64::from(height) <= ceiling,
+            "checkpoint {height} is above {ceiling}, the most the chain can have reached by {CHECKPOINT_DATE}"
+        );
     }
 }
