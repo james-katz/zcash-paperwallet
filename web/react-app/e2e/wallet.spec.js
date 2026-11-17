@@ -283,3 +283,31 @@ test('without the card template the wallet is shown as text', async ({ page }) =
   await page.getByRole('button', { name: 'Show recovery phrase' }).click();
   await expect(page.getByText('Hidden on screen.')).toHaveCount(0);
 });
+
+// Rule of the site: nothing is requested once the page is open. The trail
+// dot used to be fetched on the first pointer move.
+test('making a wallet asks the network for nothing once the page is open', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  const requests = [];
+  page.on('request', (request) => requests.push(request.url()));
+
+  await moveUntilWallet(page);
+  await waitForCanvas(page);
+  await page.getByRole('button', { name: 'Add New Wallet' }).click();
+  await page.getByLabel('Text only').check();
+  await expect(page.locator('.wallet-card')).toHaveCount(2);
+
+  expect(requests).toEqual([]);
+});
+
+test('the pointer trail is drawn without the network', async ({ page, context }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await context.setOffline(true);
+
+  await page.mouse.move(300, 300, { steps: 10 });
+  const dot = page.locator('.trail-dot').first();
+  await expect(dot).toBeAttached();
+  expect(await dot.evaluate((node) => getComputedStyle(node).backgroundImage)).toMatch(/^url\("data:image\/png/);
+});
