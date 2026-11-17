@@ -3,12 +3,18 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import About from "./pages/About";
+import { loadTemplate } from "./components/template";
 import initWasm, { generate_wallet_with_salt } from "./wasm/web";
 
 function App() {
   const [wasm, setWasm] = React.useState(null);
 
   React.useEffect(() => {
+    // Fetch the card template now, while the page is still loading. People
+    // are told to go offline before they generate, and the image mode has
+    // nothing to draw on without it. If it fails, that mode shows text.
+    loadTemplate().catch(() => {});
+
     const loadWasm = async () => {
       await initWasm();
       // Hand out the typed wrapper, not what initWasm() resolves to. That is

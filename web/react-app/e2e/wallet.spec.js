@@ -6,6 +6,11 @@ const ORIGIN = 'http://127.0.0.1:4173';
 // wallet is on the page.
 async function generateWallet(page, shift = 0) {
   await page.goto('/');
+  await moveUntilWallet(page, shift);
+}
+
+// The part of generateWallet that needs no network: the page is already open.
+async function moveUntilWallet(page, shift = 0) {
   await expect(page.getByText('Move your mouse to gather entropy')).toBeVisible();
 
   const addButton = page.getByRole('button', { name: 'Add New Wallet' });
@@ -239,4 +244,42 @@ test('the Print button shows nothing where printing does nothing', async ({ page
 
   await expect(page.getByText('Hidden on screen.')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Show recovery phrase' })).toBeVisible();
+});
+
+// The site tells people to go offline before they generate. The card
+// template is fetched when the page opens, so the image mode still has its
+// card to draw on.
+test('a wallet made after going offline still gets its image card', async ({ page, context }) => {
+  const template = page.waitForResponse((response) =>
+    response.url().endsWith('/Paper_Zcash_Wallet_vazio.jpg')
+  );
+  await page.goto('/');
+  const response = await template;
+  expect(response.ok()).toBe(true);
+  await response.finished();
+  await page.waitForLoadState('networkidle');
+
+  await context.setOffline(true);
+
+  await moveUntilWallet(page);
+  await waitForCanvas(page);
+
+  await page.evaluate(wordArea, 'save');
+  await page.getByRole('button', { name: 'Show recovery phrase' }).click();
+  expect(await page.evaluate(wordArea, 'diff')).toBeGreaterThan(DIFFERENT);
+});
+
+// A blank canvas prints as a blank page. Without the template the wallet is
+// shown as text, which prints with its words like any text card.
+test('without the card template the wallet is shown as text', async ({ page }) => {
+  await page.route('**/Paper_Zcash_Wallet_vazio.jpg', (route) => route.abort());
+  await generateWallet(page);
+
+  await expect(page.getByText('The wallet image did not load')).toBeVisible();
+  await expect(page.locator('.paper-wallet-img canvas')).toHaveCount(0);
+  await expect(page.locator('.wallet-card')).toHaveCount(1);
+  await expect(page.getByText('Hidden on screen.')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Show recovery phrase' }).click();
+  await expect(page.getByText('Hidden on screen.')).toHaveCount(0);
 });

@@ -1,8 +1,13 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
+import WalletCard from "./WalletCard";
+import { loadTemplate } from "./template";
 import "./WalletCardImg.css";
 
 const WORD_MASK = "••••••";
+
+export const TEMPLATE_FAILED_NOTE =
+  "The wallet image did not load, so this wallet is shown as text.";
 
 // Draws the 24 slots of the recovery phrase: the words when `masked` is
 // false, a row of dots otherwise.
@@ -67,31 +72,37 @@ const WalletCardImg = ({ wallet, showSeed = false }) => {
   const canvasRef = useRef(null);
   const assetsRef = useRef(null);
   const [assetsReady, setAssetsReady] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  // Everything asynchronous is loaded once per wallet: the template image
-  // and the two QR codes (UFVK and address).
+  // Everything asynchronous is prepared once per wallet: the template image
+  // (already in memory, see template.js) and the two QR codes.
   useEffect(() => {
     let cancelled = false;
     assetsRef.current = null;
     setAssetsReady(false);
+    setFailed(false);
 
-    // Hardcoded background image
-    const bgImage = new Image();
-    bgImage.onload = async () => {
-      const ufvkQrCanvas = document.createElement("canvas");
-      await QRCode.toCanvas(ufvkQrCanvas, wallet.ufvk, { width: 311});
+    const prepare = async () => {
+      try {
+        const bgImage = await loadTemplate();
 
-      const addrQrCanvas = document.createElement("canvas");
-      await QRCode.toCanvas(addrQrCanvas, wallet.address, { width: 265});
+        const ufvkQrCanvas = document.createElement("canvas");
+        await QRCode.toCanvas(ufvkQrCanvas, wallet.ufvk, { width: 311});
 
-      // No QR code for the recovery phrase: a QR is made to be photographed,
-      // and the phrase must only ever exist as words on the printed paper.
+        const addrQrCanvas = document.createElement("canvas");
+        await QRCode.toCanvas(addrQrCanvas, wallet.address, { width: 265});
 
-      if (cancelled) return;
-      assetsRef.current = { bgImage, ufvkQrCanvas, addrQrCanvas };
-      setAssetsReady(true);
+        // No QR code for the recovery phrase: a QR is made to be photographed,
+        // and the phrase must only ever exist as words on the printed paper.
+
+        if (cancelled) return;
+        assetsRef.current = { bgImage, ufvkQrCanvas, addrQrCanvas };
+        setAssetsReady(true);
+      } catch (error) {
+        if (!cancelled) setFailed(true);
+      }
     };
-    bgImage.src = "/Paper_Zcash_Wallet_vazio.jpg";
+    prepare();
 
     return () => {
       cancelled = true;
@@ -128,6 +139,18 @@ const WalletCardImg = ({ wallet, showSeed = false }) => {
     ctx.fillStyle = "#000"; // Black text
     ctx.fillText(`${wallet.birthday}`, 1260, 995);
   }, [assetsReady, showSeed, wallet]);
+
+  // Without the template there is nothing to draw on, and a blank canvas
+  // prints as a blank page. The text card carries the same wallet.
+  if (failed) {
+    return (
+      <>
+        <p className="template-note">{TEMPLATE_FAILED_NOTE}</p>
+        <WalletCard wallet={wallet} showSeed={showSeed} />
+        <div className="pagebreak"></div>
+      </>
+    );
+  }
 
   return (
     <div className="paper-wallet-img">
