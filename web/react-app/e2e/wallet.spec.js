@@ -321,3 +321,27 @@ test('a generator that does not load is reported, not waited for', async ({ page
   await expect(page.getByText('Loading...')).toHaveCount(0);
   await expect(page.getByText('Move your mouse to gather entropy')).toHaveCount(0);
 });
+
+// The rule holds on the failure path too: a template that did not arrive
+// when the page opened is not asked for again when wallets are made.
+test('a template that failed at page open is never requested again', async ({ page }) => {
+  const templateRequests = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/Paper_Zcash_Wallet_vazio.jpg')) templateRequests.push(request.url());
+  });
+  await page.route('**/Paper_Zcash_Wallet_vazio.jpg', (route) => route.abort());
+
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  expect(templateRequests).toHaveLength(1);
+
+  await moveUntilWallet(page);
+  await expect(page.getByText('The wallet image did not load')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Add New Wallet' }).click();
+  await expect(page.getByText('The wallet image did not load')).toHaveCount(2);
+  await page.getByLabel('Text only').check();
+  await page.getByLabel('Text only').uncheck();
+  await expect(page.getByText('The wallet image did not load')).toHaveCount(2);
+
+  expect(templateRequests).toHaveLength(1);
+});
