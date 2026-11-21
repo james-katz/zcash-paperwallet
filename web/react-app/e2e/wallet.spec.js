@@ -246,7 +246,7 @@ test('the Print button shows nothing where printing does nothing', async ({ page
   await expect(page.getByRole('button', { name: 'Show recovery phrase' })).toBeVisible();
 });
 
-// The site tells people to go offline before they generate. The card
+// Someone careful goes offline before generating. The card
 // template is fetched when the page opens, so the image mode still has its
 // card to draw on.
 test('a wallet made after going offline still gets its image card', async ({ page, context }) => {

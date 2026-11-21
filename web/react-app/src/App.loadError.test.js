@@ -18,3 +18,13 @@ test('says so when the wallet generator does not load', async () => {
   expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
   expect(screen.queryByText(/move your mouse/i)).not.toBeInTheDocument();
 });
+
+// The same message covers a file that did not arrive, so it cannot put the
+// blame on the browser alone.
+test('the message does not blame the browser before a reload was tried', async () => {
+  render(<App />);
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent(/reload the page/i);
+  expect(alert).not.toHaveTextContent(/in this browser/i);
+});

@@ -11,9 +11,10 @@ function App() {
   const [loadFailed, setLoadFailed] = React.useState(false);
 
   React.useEffect(() => {
-    // Fetch the card template now, while the page is still loading. People
-    // are told to go offline before they generate, and the image mode has
-    // nothing to draw on without it. If it fails, that mode shows text.
+    // Fetch the card template now, while the page is still loading. Someone
+    // careful switches the network off before generating, and the image
+    // mode has nothing to draw on without it. If it fails, that mode shows
+    // text. (This page does not give that advice yet.)
     loadTemplate().catch(() => {});
 
     const loadWasm = async () => {
@@ -38,8 +39,8 @@ function App() {
   if (loadFailed) {
     return (
       <div className="load-error" role="alert">
-        The wallet generator did not load in this browser. No wallet was made.
-        Update the browser or use another one, then open this page again.
+        The wallet generator did not load. No wallet was made. Reload the
+        page. If it happens again, update the browser or use another one.
       </div>
     );
   }

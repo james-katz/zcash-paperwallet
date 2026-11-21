@@ -17,7 +17,7 @@ jest.mock('./components/template', () => ({
   },
 }));
 
-// The site tells people to switch the network off before they generate.
+// Someone careful switches the network off before generating.
 // The card template has to be in memory by then, so it is asked for when
 // the page opens, not when the first wallet is made.
 test('asks for the card template when the page opens, before any wallet', async () => {
