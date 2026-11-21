@@ -8,8 +8,9 @@
 //
 // The tip is read from two independent explorers. They must agree within a
 // few blocks, the lower height is kept, and the checkpoint never moves back.
-// It never moves further ahead than MAX_BLOCKS_PER_DAY allows either, and
-// --check fails on a checkpoint dated in the future.
+// In one run it never moves further ahead than MAX_BLOCKS_PER_DAY allows for
+// the days gone by plus one, and --check fails on a checkpoint dated in the
+// future. Run `cargo test` after it: the anchor test bounds the total.
 // Run it before every release, then rebuild the WASM.
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -129,7 +130,10 @@ export function daysBetween(from, to) {
  * The limit is a sanity bound, not a proof: MAX_BLOCKS_PER_DAY is twice the
  * measured rate and one extra day is allowed, so it stops a wrong source or
  * a typo, and the two sources and the margin do the rest. It grows with the
- * date, which is why a date after today is refused.
+ * date, which is why a date after today is refused. It is counted from the
+ * checkpoint that is there, so it bounds one run, not a day: run again and
+ * again, the script would allow one more day each time. The total is bounded
+ * by the anchor test in checkpoint.rs, which runs with `cargo test`.
  */
 export function rewrite(source, height, date, now = new Date()) {
   const current = readCheckpoint(source);

@@ -120,6 +120,14 @@ mod tests {
         );
     }
 
+    // Every ceiling is counted in this constant, here and in the update
+    // script, so a larger value would loosen all of them without a sound.
+    #[test]
+    fn daily_ceiling_is_twice_the_measured_block_rate() {
+        let measured_spacing_seconds = 25;
+        assert_eq!(MAX_BLOCKS_PER_DAY, 2 * 86_400 / measured_spacing_seconds);
+    }
+
     /// The first checkpoint, read on two explorers that agreed. Later ones
     /// are checked against it. Do not move it when the checkpoint moves.
     const ANCHOR_HEIGHT: u32 = 3_580_609;
