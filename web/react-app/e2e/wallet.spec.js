@@ -369,6 +369,14 @@ test('a wallet whose image is still on its way prints as text, with its words', 
       /^([a-z]+ ){23}[a-z]+$/.test(p.textContent.trim())
     );
 
+  // Asked for, the phrase is shown where the page says it is: on screen.
+  await page.getByRole('button', { name: 'Show recovery phrase' }).click();
+  await expect(page.locator('.wallet-card')).toBeVisible();
+  expect(await page.evaluate(phraseOnPage)).toBe(true);
+  await page.getByRole('button', { name: 'Hide recovery phrase' }).click();
+  await expect(page.locator('.wallet-card')).toBeHidden();
+  expect(await page.evaluate(phraseOnPage)).toBe(false);
+
   // For the printer: the text card, with the phrase from beforeprint on.
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.wallet-card')).toBeVisible();

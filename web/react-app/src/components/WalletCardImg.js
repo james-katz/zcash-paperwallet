@@ -145,14 +145,17 @@ const WalletCardImg = ({ wallet, showSeed = false }) => {
   // Until the card is drawn there is only an empty canvas, and an empty
   // canvas prints as a blank sheet. The text card carries the same wallet:
   // it is what the printer gets while the template is on its way, and what
-  // the screen shows too once the template has failed.
+  // the screen shows too once the template has failed. It also comes on
+  // screen when the phrase is asked for: the page then says the phrase is
+  // on screen, and that has to be true.
   if (!assetsReady) {
+    const onScreen = failed || showSeed;
     return (
       <>
         <p className="template-note">
           {failed ? TEMPLATE_FAILED_NOTE : TEMPLATE_PENDING_NOTE}
         </p>
-        <div className={failed ? undefined : "print-only"} data-testid="text-stand-in">
+        <div className={onScreen ? undefined : "print-only"} data-testid="text-stand-in">
           <WalletCard wallet={wallet} showSeed={showSeed} />
           <div className="pagebreak"></div>
         </div>

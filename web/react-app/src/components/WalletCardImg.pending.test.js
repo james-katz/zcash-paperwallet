@@ -29,9 +29,17 @@ test('keeps a text card for the printer while the image is on its way', async ()
   expect(printOnly).not.toHaveTextContent(FAKE_WALLET.seed);
 });
 
-test('the text card kept for the printer follows showSeed', async () => {
-  render(<WalletCardImg wallet={FAKE_WALLET} showSeed />);
+// The page says "the recovery phrase is on screen" once it is asked for, so
+// it has to be: the text card comes out of hiding with the words in it.
+test('asking for the phrase brings the text card onto the screen', async () => {
+  const { rerender } = render(<WalletCardImg wallet={FAKE_WALLET} showSeed />);
 
   await screen.findByText(/preparing the wallet image/i);
-  expect(screen.getByTestId('text-stand-in')).toHaveTextContent(FAKE_WALLET.seed);
+  const standIn = screen.getByTestId('text-stand-in');
+  expect(standIn).toHaveTextContent(FAKE_WALLET.seed);
+  expect(standIn).not.toHaveClass('print-only');
+
+  rerender(<WalletCardImg wallet={FAKE_WALLET} showSeed={false} />);
+  expect(screen.getByTestId('text-stand-in')).toHaveClass('print-only');
+  expect(screen.getByTestId('text-stand-in')).not.toHaveTextContent(FAKE_WALLET.seed);
 });
