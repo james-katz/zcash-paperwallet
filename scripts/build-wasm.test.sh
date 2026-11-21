@@ -139,6 +139,41 @@ else
   echo "ok - symbolic link cases skipped: this shell makes none"
 fi
 
+# A directory that cannot be listed is not an empty one.
+mkdir -p "$box/unlistable"
+echo "keep" > "$box/unlistable/package.json"
+chmod 300 "$box/unlistable"
+check "a directory that cannot be listed is refused" refused build "$box/unlistable"
+chmod 700 "$box/unlistable"
+check "and the file in it is untouched" grep -q keep "$box/unlistable/package.json"
+
+# Nor is one that find fails on, whatever the reason.
+mkdir "$box/badfind"
+cat > "$box/badfind/find" <<'STUB'
+#!/usr/bin/env bash
+exit 2
+STUB
+chmod +x "$box/badfind/find"
+mkdir -p "$box/project2"
+echo "keep" > "$box/project2/README.md"
+echo "keep" > "$box/project2/package.json"
+build_with_bad_find() { PATH="$box/badfind:$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
+check "a destination that find fails on is refused" refused build_with_bad_find "$box/project2"
+check "and its package.json is untouched" grep -q keep "$box/project2/package.json"
+check "even when it is a previous output" refused build_with_bad_find "$box/again"
+
+# An empty argument must not become "build into the site". Run on a copy of
+# the script, so that a regression writes into the box and not into the repo.
+mkdir -p "$box/repo/scripts" "$box/repo/web"
+cp "$script" "$box/repo/scripts/build-wasm.sh"
+copy_build() { PATH="$box/bin:/usr/bin:/bin" bash "$box/repo/scripts/build-wasm.sh" "$@" >/dev/null 2>&1; }
+check "an empty argument is refused" refused copy_build ""
+check "and nothing was built into the default place" test ! -e "$box/repo/web/react-app"
+check "a second argument is refused" refused copy_build "$box/two" "$box/three"
+check "and nothing was built" test ! -e "$box/two"
+check "no argument builds into the default place" copy_build
+check "which is the site" test -f "$box/repo/web/react-app/src/wasm/web_bg.wasm"
+
 # Failures must leave what was there.
 previous_output "$box/kept"
 check "a failed build is reported" refused build_with STUB_FAILS=1 "$box/kept"

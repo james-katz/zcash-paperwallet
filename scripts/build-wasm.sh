@@ -24,9 +24,20 @@ fail() {
 }
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-dest="${1:-$root/web/react-app/src/wasm}"
+
+# An empty argument is a mistake, a variable that was never set for example.
+# It must not quietly become "build into the site".
+[ "$#" -le 1 ] || fail "takes one argument at most, the output directory. Nothing was changed."
+if [ "$#" -eq 1 ] && [ -z "$1" ]; then
+  fail "the output directory is an empty string. Nothing was changed."
+fi
+dest="${1-$root/web/react-app/src/wasm}"
 
 command -v wasm-pack >/dev/null 2>&1 || fail "wasm-pack is not installed. Nothing was changed."
+
+# The scratch directory, and the only thing this script removes.
+work="$(mktemp -d)"
+trap 'rm -rf -- "$work"' EXIT
 
 # The five files this script writes, and the only ones it ever touches.
 outputs=(package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts)
@@ -50,6 +61,10 @@ esac
 # from the destination, and no other directory is accepted.
 if [ -e "$dest" ] || [ -L "$dest" ]; then
   [ -d "$dest" ] && [ ! -L "$dest" ] || fail "$dest is not a directory. Nothing was changed."
+  # A directory that cannot be listed is not an empty one. The list goes to
+  # a file so that a find that fails stops the script here.
+  find "$dest" -mindepth 1 -maxdepth 1 -print0 > "$work/listing" 2>/dev/null \
+    || fail "cannot list what is in $dest. Nothing was changed."
   found=0
   while IFS= read -r -d '' entry; do
     name="$(basename "$entry")"
@@ -60,7 +75,7 @@ if [ -e "$dest" ] || [ -L "$dest" ]; then
     [ -n "$known" ] || fail "$dest holds '$name', which this script did not put there. Nothing was changed."
     [ -f "$entry" ] && [ ! -L "$entry" ] || fail "$dest/$name is not a plain file. Nothing was changed."
     found=$((found + 1))
-  done < <(find "$dest" -mindepth 1 -maxdepth 1 -print0)
+  done < "$work/listing"
   if [ "$found" -ne 0 ] && [ "$found" -ne "${#outputs[@]}" ]; then
     fail "$dest holds some of the output files but not all five, so it is not a previous output. Nothing was changed."
   fi
@@ -80,12 +95,8 @@ flags=(
 CARGO_ENCODED_RUSTFLAGS="$(IFS=$'\x1f'; printf '%s' "${flags[*]}")"
 export CARGO_ENCODED_RUSTFLAGS
 
-# Build in a scratch directory and copy the five files over only when the
-# build worked, so a failed build leaves the files that were there. The
-# scratch directory is the only thing this script removes.
-work="$(mktemp -d)"
-trap 'rm -rf -- "$work"' EXIT
-
+# Build in the scratch directory and copy the five files over only when the
+# build worked, so a failed build leaves the files that were there.
 cd "$root/web"
 wasm-pack build --target web --release --out-dir "$work/out" -- --locked
 for output in "${outputs[@]}"; do
