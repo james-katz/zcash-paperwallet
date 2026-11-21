@@ -4,6 +4,7 @@
 //   node scripts/update-checkpoint.mjs            read the chain tip, rewrite the constants
 //   node scripts/update-checkpoint.mjs --check    no network: fail if the checkpoint is too old
 //   node scripts/update-checkpoint.mjs --check --max-age-days 14
+//   add --file <path> to work on another copy of the constants (the tests do)
 //
 // The tip is read from two independent explorers. They must agree within a
 // few blocks, the lower height is kept, and the checkpoint never moves back.
@@ -40,9 +41,13 @@ export const SOURCES = [
 export const TOLERANCE_BLOCKS = 20;
 export const DEFAULT_MAX_AGE_DAYS = 7;
 
-const HEIGHT_RE = /(pub const CHECKPOINT_HEIGHT_MAIN: u32 = )([0-9_]+)(;)/;
-const DATE_RE = /(pub const CHECKPOINT_DATE: &str = ")([0-9]{4}-[0-9]{2}-[0-9]{2})(";)/;
-const MAX_PER_DAY_RE = /pub const MAX_BLOCKS_PER_DAY: u32 = ([0-9_]+);/;
+// Anchored to the start of a line: a copy of a declaration inside a comment
+// is not the declaration.
+const HEIGHT_RE = /^(pub const CHECKPOINT_HEIGHT_MAIN: u32 = )([0-9_]+)(;)/m;
+const DATE_RE = /^(pub const CHECKPOINT_DATE: &str = ")([0-9]{4}-[0-9]{2}-[0-9]{2})(";)/m;
+const MAX_PER_DAY_RE = /^pub const MAX_BLOCKS_PER_DAY: u32 = ([0-9_]+);/m;
+
+const U32_MAX = 4_294_967_295;
 
 /** Reads the current checkpoint out of the Rust source. */
 export function readCheckpoint(source) {
@@ -86,28 +91,60 @@ export function readMaxBlocksPerDay(source) {
   return Number(match[1].replaceAll('_', ''));
 }
 
+/** True for a day that exists on the calendar, written YYYY-MM-DD. */
+export function isIsoDay(text) {
+  if (typeof text !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(text)) {
+    return false;
+  }
+  // 2026-11-31 parses as the first of December; a real day comes back as itself.
+  const time = Date.parse(`${text}T00:00:00Z`);
+  return !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === text;
+}
+
+function dayToTime(text) {
+  if (!isIsoDay(text)) {
+    throw new Error(`not an ISO day: ${text}`);
+  }
+  return Date.parse(`${text}T00:00:00Z`);
+}
+
+/** The UTC day of a clock reading, or an error if the reading is not a date. */
+function clockDay(now) {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw new Error('the clock of this machine gave no usable date');
+  }
+  return now.toISOString().slice(0, 10);
+}
+
 /** Whole days from one ISO day to another. Negative when `to` is earlier. */
 export function daysBetween(from, to) {
-  const start = Date.parse(`${from}T00:00:00Z`);
-  const end = Date.parse(`${to}T00:00:00Z`);
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    throw new Error(`not an ISO day: ${Number.isNaN(start) ? from : to}`);
-  }
-  return Math.round((end - start) / 86_400_000);
+  return Math.round((dayToTime(to) - dayToTime(from)) / 86_400_000);
 }
 
 /**
  * Returns the Rust source with the new height and date. Never moves back,
  * and never further ahead than the chain can have gone since the checkpoint
  * that is already there: a height above the real tip would hide funds.
+ *
+ * The limit is a sanity bound, not a proof: MAX_BLOCKS_PER_DAY is twice the
+ * measured rate and one extra day is allowed, so it stops a wrong source or
+ * a typo, and the two sources and the margin do the rest. It grows with the
+ * date, which is why a date after today is refused.
  */
-export function rewrite(source, height, date) {
+export function rewrite(source, height, date, now = new Date()) {
   const current = readCheckpoint(source);
+  if (typeof height !== 'number' || !Number.isSafeInteger(height) || height <= 0 || height > U32_MAX) {
+    throw new Error(`not a block height: ${height}`);
+  }
   if (height < current.height) {
     throw new Error(`refusing to move the checkpoint back: ${current.height} -> ${height}`);
   }
-  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)) {
+  if (!isIsoDay(date)) {
     throw new Error(`not an ISO day: ${date}`);
+  }
+  const today = clockDay(now);
+  if (daysBetween(today, date) > 0) {
+    throw new Error(`${date} is in the future: today is ${today} (UTC). Check the clock of this machine.`);
   }
   const days = daysBetween(current.date, date);
   if (days < 0) {
@@ -127,11 +164,8 @@ export function rewrite(source, height, date) {
 
 /** Whole days between the checkpoint date and now (UTC). */
 export function ageInDays(date, now = new Date()) {
-  const then = Date.parse(`${date}T00:00:00Z`);
-  if (Number.isNaN(then)) {
-    throw new Error(`not an ISO day: ${date}`);
-  }
-  return Math.floor((now.getTime() - then) / 86_400_000);
+  clockDay(now);
+  return Math.floor((now.getTime() - dayToTime(date)) / 86_400_000);
 }
 
 /** The age of the checkpoint in days, or an error if it fails `--check`. */
@@ -163,7 +197,14 @@ async function fetchHeight(source) {
 }
 
 async function main(argv) {
-  const source = readFileSync(CHECKPOINT_FILE, 'utf8');
+  // --file points the command at another copy of the constants. The tests
+  // use it; a release always works on lib/src/checkpoint.rs.
+  const fileFlag = argv.indexOf('--file');
+  if (fileFlag !== -1 && !argv[fileFlag + 1]) {
+    throw new Error('--file needs a path');
+  }
+  const file = fileFlag === -1 ? CHECKPOINT_FILE : path.resolve(argv[fileFlag + 1]);
+  const source = readFileSync(file, 'utf8');
   const current = readCheckpoint(source);
 
   if (argv.includes('--check')) {
@@ -177,8 +218,9 @@ async function main(argv) {
   const heights = await Promise.all(SOURCES.map(fetchHeight));
   SOURCES.forEach((entry, index) => console.log(`${entry.name}: ${heights[index]}`));
   const height = pickHeight(heights);
-  const date = new Date().toISOString().slice(0, 10);
-  writeFileSync(CHECKPOINT_FILE, rewrite(source, height, date));
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  writeFileSync(file, rewrite(source, height, date, now));
   console.log(`checkpoint ${current.height} (${current.date}) -> ${height} (${date})`);
 }
 

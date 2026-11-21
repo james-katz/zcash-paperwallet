@@ -26,6 +26,11 @@ pub const BIRTHDAY_MARGIN: u32 = 7_000;
 /// checked: twice the 25 second spacing above (86 400 / 12.5). A checkpoint
 /// further ahead than this is a typo or a wrong source, and a birthday above
 /// the real tip hides funds. `scripts/update-checkpoint.mjs` reads this value.
+///
+/// It is a sanity bound, not a proof that a height is at or below the tip:
+/// at twice the real rate plus a day of slack it lets through a height some
+/// way above it. The two sources that must agree and `BIRTHDAY_MARGIN` are
+/// what keep the birthday under the tip.
 pub const MAX_BLOCKS_PER_DAY: u32 = 6_912;
 
 /// The height the birthday is counted back from.
@@ -85,6 +90,34 @@ mod tests {
         assert_eq!(parts.len(), 3);
         assert!(parts.iter().all(|p| p.chars().all(|c| c.is_ascii_digit())));
         assert_eq!((parts[0].len(), parts[1].len(), parts[2].len()), (4, 2, 2));
+
+        // And a day that exists: not month 13, not the 31st of November.
+        let numbers: Vec<i64> = parts.iter().map(|p| p.parse().unwrap()).collect();
+        let (year, month, day) = (numbers[0], numbers[1], numbers[2]);
+        assert!((1..=12).contains(&month), "no month {month}");
+        let days_in_month = match month {
+            4 | 6 | 9 | 11 => 30,
+            2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+            2 => 28,
+            _ => 31,
+        };
+        assert!((1..=days_in_month).contains(&day), "no day {day} in month {month} of {year}");
+    }
+
+    // The ceiling below grows with the checkpoint date, so a date ahead of
+    // today would make room for any height. This is the only place the clock
+    // is read, and only by the tests: wallets never depend on it.
+    #[test]
+    fn checkpoint_date_is_not_in_the_future() {
+        let seconds = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("the clock of this machine is before 1970")
+            .as_secs();
+        let today = i64::try_from(seconds / 86_400).unwrap();
+        assert!(
+            days_since_epoch(CHECKPOINT_DATE) <= today,
+            "checkpoint date {CHECKPOINT_DATE} is after today (UTC)"
+        );
     }
 
     /// The first checkpoint, read on two explorers that agreed. Later ones
