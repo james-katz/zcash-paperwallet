@@ -30,3 +30,11 @@ test('the text shown in its place still follows showSeed', async () => {
 
   expect(await screen.findByText(FAKE_WALLET.seed)).toBeInTheDocument();
 });
+
+// Once the template has failed, the text card is for the screen as well.
+test('the text card of a failed template is not kept for the printer only', async () => {
+  render(<WalletCardImg wallet={FAKE_WALLET} />);
+
+  await screen.findByText(/image did not load/i);
+  expect(screen.getByTestId('text-stand-in')).not.toHaveClass('print-only');
+});

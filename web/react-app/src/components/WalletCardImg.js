@@ -9,6 +9,8 @@ const WORD_MASK = "••••••";
 export const TEMPLATE_FAILED_NOTE =
   "The wallet image did not load, so this wallet is shown as text.";
 
+export const TEMPLATE_PENDING_NOTE = "Preparing the wallet image...";
+
 // Draws the 24 slots of the recovery phrase: the words when `masked` is
 // false, a row of dots otherwise.
 function printRecoveryPhrase(ctx, seed, masked) {
@@ -140,20 +142,26 @@ const WalletCardImg = ({ wallet, showSeed = false }) => {
     ctx.fillText(`${wallet.birthday}`, 1260, 995);
   }, [assetsReady, showSeed, wallet]);
 
-  // Without the template there is nothing to draw on, and a blank canvas
-  // prints as a blank page. The text card carries the same wallet.
-  if (failed) {
+  // Until the card is drawn there is only an empty canvas, and an empty
+  // canvas prints as a blank sheet. The text card carries the same wallet:
+  // it is what the printer gets while the template is on its way, and what
+  // the screen shows too once the template has failed.
+  if (!assetsReady) {
     return (
       <>
-        <p className="template-note">{TEMPLATE_FAILED_NOTE}</p>
-        <WalletCard wallet={wallet} showSeed={showSeed} />
-        <div className="pagebreak"></div>
+        <p className="template-note">
+          {failed ? TEMPLATE_FAILED_NOTE : TEMPLATE_PENDING_NOTE}
+        </p>
+        <div className={failed ? undefined : "print-only"} data-testid="text-stand-in">
+          <WalletCard wallet={wallet} showSeed={showSeed} />
+          <div className="pagebreak"></div>
+        </div>
       </>
     );
   }
 
   return (
-    <div className="paper-wallet-img">
+    <div className="paper-wallet-img" data-testid="image-card">
       <canvas ref={canvasRef}></canvas>
     </div>
   );

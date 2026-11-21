@@ -53,3 +53,28 @@ test('reports a template that did not load, and never asks for it again', async 
 
   expect(created).toHaveLength(1);
 });
+
+// A request that never answers must not leave the wallet waiting for good.
+test('gives up on a template that takes too long, and stays given up', async () => {
+  jest.useFakeTimers();
+  try {
+    installImage('never');
+    const { loadTemplate, TEMPLATE_TIMEOUT_MS } = freshModule();
+
+    const outcome = loadTemplate().then(
+      () => 'loaded',
+      (error) => error.message
+    );
+    jest.advanceTimersByTime(TEMPLATE_TIMEOUT_MS - 1);
+    await Promise.resolve();
+    jest.advanceTimersByTime(1);
+    expect(await outcome).toMatch(/did not load/);
+
+    // An answer that comes after that changes nothing.
+    created[0].onload();
+    await expect(loadTemplate()).rejects.toThrow(/did not load/);
+    expect(created).toHaveLength(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});

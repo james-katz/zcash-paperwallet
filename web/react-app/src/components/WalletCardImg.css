@@ -9,11 +9,24 @@ canvas {
     margin: 16px;
 }
 
+/* The text card that stands in for an image card that is not drawn yet:
+   kept off the screen, there for the printer. */
+@media screen {
+    .print-only {
+        display: none;
+    }
+}
+
 @media print {
     canvas {
         width: 94vw; 
         height: auto;
     } 
+
+    /* A line about the screen has no place on the paper. */
+    .template-note {
+        display: none;
+    }
 }
 .template-note {
     max-width: 640px;

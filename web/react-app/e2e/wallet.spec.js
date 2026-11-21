@@ -345,3 +345,39 @@ test('a template that failed at page open is never requested again', async ({ pa
 
   expect(templateRequests).toHaveLength(1);
 });
+
+// A slow connection: the wallet exists before its card template arrives.
+// An empty canvas would print as a blank sheet, so until the card is drawn
+// the wallet is on the page as a text card that only the printer sees.
+test('a wallet whose image is still on its way prints as text, with its words', async ({ page }) => {
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  await page.route('**/Paper_Zcash_Wallet_vazio.jpg', async (route) => {
+    await held;
+    await route.abort().catch(() => {});
+  });
+
+  await generateWallet(page);
+
+  // On screen: a line that says so, and nothing that looks like a wallet.
+  await expect(page.getByText('Preparing the wallet image')).toBeVisible();
+  await expect(page.locator('.wallet-card')).toHaveCount(1);
+  await expect(page.locator('.wallet-card')).toBeHidden();
+
+  const phraseOnPage = () =>
+    Array.from(document.querySelectorAll('.wallet-card p')).some((p) =>
+      /^([a-z]+ ){23}[a-z]+$/.test(p.textContent.trim())
+    );
+
+  // For the printer: the text card, with the phrase from beforeprint on.
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('.wallet-card')).toBeVisible();
+  await expect(page.getByText('Preparing the wallet image')).toBeHidden();
+  await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+  expect(await page.evaluate(phraseOnPage)).toBe(true);
+
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await expect.poll(() => page.evaluate(phraseOnPage)).toBe(false);
+  await page.emulateMedia({ media: 'screen' });
+  release();
+});
