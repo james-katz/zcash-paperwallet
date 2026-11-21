@@ -28,24 +28,42 @@ dest="${1:-$root/web/react-app/src/wasm}"
 
 command -v wasm-pack >/dev/null 2>&1 || fail "wasm-pack is not installed. Nothing was changed."
 
-# The destination is replaced at the end. The script changes directory before
-# it builds, so a relative path would name two different places.
+# The five files this script writes, and the only ones it ever touches.
+outputs=(package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts)
+
+# The script changes directory before it builds, so a relative path would
+# name two different places. A trailing slash would hide a symbolic link
+# from the checks below, and ".." would make the path mean something else.
+while [ "$dest" != "/" ] && [ "${dest%/}" != "$dest" ]; do
+  dest="${dest%/}"
+done
 case "$dest" in
   /*) ;;
   *) fail "give the output directory as an absolute path, not '$dest'. Nothing was changed." ;;
 esac
+case "$dest/" in
+  */../* | */./*) fail "give the output directory without '.' or '..' in it. Nothing was changed." ;;
+esac
 
-# Only a new directory, an empty one or a previous output is replaced.
+# The files are written into a directory that is new, empty, or holds a
+# previous output: all five files and nothing else. Nothing is ever deleted
+# from the destination, and no other directory is accepted.
 if [ -e "$dest" ] || [ -L "$dest" ]; then
   [ -d "$dest" ] && [ ! -L "$dest" ] || fail "$dest is not a directory. Nothing was changed."
+  found=0
   while IFS= read -r -d '' entry; do
     name="$(basename "$entry")"
-    case "$name" in
-      package.json | web.js | web.d.ts | web_bg.wasm | web_bg.wasm.d.ts | .gitignore | README.md) ;;
-      *) fail "$dest holds '$name', which this script did not put there. Nothing was changed." ;;
-    esac
+    known=""
+    for output in "${outputs[@]}"; do
+      [ "$name" != "$output" ] || known="yes"
+    done
+    [ -n "$known" ] || fail "$dest holds '$name', which this script did not put there. Nothing was changed."
     [ -f "$entry" ] && [ ! -L "$entry" ] || fail "$dest/$name is not a plain file. Nothing was changed."
+    found=$((found + 1))
   done < <(find "$dest" -mindepth 1 -maxdepth 1 -print0)
+  if [ "$found" -ne 0 ] && [ "$found" -ne "${#outputs[@]}" ]; then
+    fail "$dest holds some of the output files but not all five, so it is not a previous output. Nothing was changed."
+  fi
 fi
 
 cargo_home="${CARGO_HOME:-$HOME/.cargo}"
@@ -62,18 +80,21 @@ flags=(
 CARGO_ENCODED_RUSTFLAGS="$(IFS=$'\x1f'; printf '%s' "${flags[*]}")"
 export CARGO_ENCODED_RUSTFLAGS
 
-# Build in a scratch directory and swap it in only when the build worked, so
-# a failed build leaves the files that were there.
+# Build in a scratch directory and copy the five files over only when the
+# build worked, so a failed build leaves the files that were there. The
+# scratch directory is the only thing this script removes.
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
 
 cd "$root/web"
 wasm-pack build --target web --release --out-dir "$work/out" -- --locked
-rm -f -- "$work/out/.gitignore"
-[ -f "$work/out/web_bg.wasm" ] || fail "the build left no web_bg.wasm. Nothing was changed."
+for output in "${outputs[@]}"; do
+  [ -f "$work/out/$output" ] || fail "the build left no $output. Nothing was changed."
+done
 
-mkdir -p -- "$(dirname "$dest")"
-rm -rf -- "$dest"
-mv -- "$work/out" "$dest"
+mkdir -p -- "$dest"
+for output in "${outputs[@]}"; do
+  cp -f -- "$work/out/$output" "$dest/$output"
+done
 
 sha256sum "$dest/web_bg.wasm"
