@@ -20,6 +20,10 @@ stop() {
 
 # The box is removed with rm -rf at the end, so it must be the directory
 # mktemp made and nothing else: not empty, not relative, not where we stand.
+case "${TMPDIR:-/tmp}" in
+  /*) ;;
+  *) stop "TMPDIR is a relative path ('${TMPDIR:-}'). Give it in full or unset it. Nothing was run." ;;
+esac
 box="$(mktemp -d)" || stop "cannot make a temporary directory. Nothing was run."
 case "$box" in
   /*) ;;
@@ -30,7 +34,8 @@ box="$(cd -- "$box" && pwd -P)" || stop "cannot enter the temporary directory. N
 if [ -z "$box" ] || [ "$box" = "/" ] || [ "$box" = "$(pwd -P)" ]; then
   stop "refusing to use '$box' as the temporary directory. Nothing was run."
 fi
-trap 'rm -rf -- "$box"' EXIT
+# One case leaves a directory that cannot be written to; make it removable.
+trap 'chmod -R u+rwx -- "$box" 2>/dev/null; rm -rf -- "$box"' EXIT
 
 outputs=(package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts)
 
@@ -45,7 +50,24 @@ outputs=(package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts)
 #                    script is about to use for its copy of web.js (the
 #                    script is this stub's parent, so its number is known)
 #   STUB_BLOCK_LINK  the same, with a symbolic link that points nowhere
-mkdir "$box/bin"
+#   STUB_TOUCH_LOCK  change Cargo.lock of the repo, as wasm-pack can
+#   STUB_STUCK       leave, in the scratch directory, a folder that cannot be
+#                    removed
+mkdir "$box/bin" "$box/home"
+
+# A cargo that answers "cargo metadata --locked": yes, unless STUB_STALE is
+# set, and no if it is asked without --locked.
+cat > "$box/bin/cargo" <<'STUB'
+#!/usr/bin/env bash
+[ "${1:-}" = "metadata" ] || exit 1
+case " $* " in
+  *" --locked "*) ;;
+  *) exit 1 ;;
+esac
+[ -z "${STUB_STALE:-}" ] || exit 101
+echo "{}"
+STUB
+chmod +x "$box/bin/cargo"
 cat > "$box/bin/wasm-pack" <<'STUB'
 #!/usr/bin/env bash
 out=""
@@ -65,7 +87,12 @@ done
 [ -z "${STUB_CALL:-}" ] || printf '%s\n%s\n' "$(pwd -P)" "$call" > "$STUB_CALL"
 [ -z "${STUB_BLOCK:-}" ] || echo "foreign" > "$STUB_BLOCK/.web.js.build-wasm.$PPID"
 [ -z "${STUB_BLOCK_LINK:-}" ] || ln -s "$STUB_BLOCK_LINK/nowhere" "$STUB_BLOCK_LINK/.web.js.build-wasm.$PPID"
+[ -z "${STUB_TOUCH_LOCK:-}" ] || echo "rewritten" >> ../Cargo.lock
 mkdir -p "$out"
+if [ -n "${STUB_STUCK:-}" ]; then
+  mkdir -p "$out/../stuck/inner"
+  chmod 500 "$out/../stuck"
+fi
 for name in package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts .gitignore; do
   if [ -n "${STUB_PARTIAL:-}" ] && [ "$name" = "web.d.ts" ]; then continue; fi
   echo "${STUB_CONTENT:-new}" > "$out/$name"
@@ -114,6 +141,7 @@ new_repo() {
   site="$repo/web/react-app/src/wasm"
   mkdir -p "$repo/scripts" "$repo/web" "$repo/tmp"
   cp "$source_script" "$repo/scripts/build-wasm.sh"
+  echo "lock" > "$repo/Cargo.lock"
   if [ "${2:-}" = "old" ]; then
     mkdir -p "$site"
     for name in "${outputs[@]}"; do echo "old" > "$site/$name"; done
@@ -129,7 +157,8 @@ run() {
     shift
   done
   [ "$#" -eq 0 ] || shift
-  env TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" "${settings[@]+"${settings[@]}"}" \
+  env -u CARGO_HOME -u RUSTUP_HOME HOME="$box/home" TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" \
+    "${settings[@]+"${settings[@]}"}" \
     bash "$repo/scripts/build-wasm.sh" "$@" > "$box/last" 2>&1
 }
 
@@ -239,7 +268,7 @@ check "and no scratch directory left" entries "$repo/tmp" 0
 
 new_repo nopack old
 no_wasm_pack() {
-  if env TMPDIR="$repo/tmp" PATH="/usr/bin:/bin" bash "$repo/scripts/build-wasm.sh" > "$box/last" 2>&1; then return 1; fi
+  if env HOME="$box/home" TMPDIR="$repo/tmp" PATH="/usr/bin:/bin" bash "$repo/scripts/build-wasm.sh" > "$box/last" 2>&1; then return 1; fi
   grep -q "wasm-pack is not installed" "$box/last"
 }
 if PATH="/usr/bin:/bin" command -v wasm-pack >/dev/null 2>&1; then
@@ -273,9 +302,44 @@ check "and the script's own copies are removed" entries "$site" 6
 new_repo folder old
 rm "$site/web.d.ts"
 mkdir "$site/web.d.ts"
+others_are_old() {
+  local name
+  for name in package.json web.js web_bg.wasm web_bg.wasm.d.ts; do
+    grep -qx old "$site/$name" || return 1
+  done
+}
 check "an output name that is a folder is refused" refused "is not a plain file"
-check "and the files next to it are as they were" grep -qx old "$site/web_bg.wasm"
+check "and the four files next to it are as they were" others_are_old
 check "with no copy in progress" entries "$site" 5
+
+# --- The lockfile -----------------------------------------------------------
+
+# wasm-pack rewrites a Cargo.lock that is out of step with a Cargo.toml, even
+# when cargo is told --locked for the build itself.
+new_repo stale old
+check "a lockfile that is out of step stops the script before the build" refused "out of step" STUB_STALE=1
+check "also for --check" refused "out of step" STUB_STALE=1 -- --check
+check "the lockfile is as it was" grep -qx lock "$repo/Cargo.lock"
+check "and so is the site" all_are old
+
+new_repo relocked old
+check "a build that changes the lockfile all the same is reported" refused "the build changed" STUB_TOUCH_LOCK=1
+check "and the site is as it was" all_are old
+check "with no copy in progress" entries "$site" 5
+
+new_repo nolock old
+rm "$repo/Cargo.lock"
+check "a repo without a lockfile is refused" refused "there is no"
+check "and the site is as it was" all_are old
+
+# --- Two things going wrong at once -----------------------------------------
+
+# A scratch directory that cannot be removed must not keep the script from
+# taking its own copies back out of the site.
+new_repo stuck old
+check "a copy that fails with a scratch directory that cannot be removed is reported" refused "could not copy" STUB_STUCK=1 CALL_COUNT="$box/cp-count-3" PATH="$box/badcp:$box/bin:/usr/bin:/bin"
+check "the copies are removed from the site all the same" entries "$site" 5
+check "and the site still holds the five old files" all_are old
 
 new_repo sitefile
 mkdir -p "$repo/web/react-app/src"
@@ -310,11 +374,19 @@ if [ -L "$site/web.js" ]; then
   check "an output name that is a symbolic link is refused" refused "is not a plain file"
   check "and what it points at is untouched" grep -qx elsewhere "$box/pointed"
 
+  new_repo samelink old
+  echo "old" > "$box/same-bytes"
+  rm "$site/web.js"
+  ln -s "$box/same-bytes" "$site/web.js"
+  check "--check does not take a link to a file with the same bytes for the file" refused "is not what is in" STUB_CONTENT=old -- --check
+  check "and names it" only_different web.js
+
   new_repo sitelink
   mkdir -p "$box/realsite" "$repo/web/react-app/src"
   echo "keep" > "$box/realsite/web.js"
   ln -s "$box/realsite" "$repo/web/react-app/src/wasm"
   check "a site directory that is a symbolic link is refused" refused "is a symbolic link"
+  check "also for --check" refused "is a symbolic link" -- --check
   check "and what it points at is untouched" grep -qx keep "$box/realsite/web.js"
   check "with nothing added to it" entries "$box/realsite" 1
 
@@ -323,6 +395,12 @@ if [ -L "$site/web.js" ]; then
   ln -s "$box/realsrc" "$repo/web/react-app/src"
   check "a symbolic link higher up on the way to the site is refused" refused "is a symbolic link"
   check "and nothing is made where it points" entries "$box/realsrc" 0
+
+  new_repo applink
+  mkdir -p "$box/realapp"
+  ln -s "$box/realapp" "$repo/web/react-app"
+  check "so is one in the place of web/react-app" refused "is a symbolic link"
+  check "and nothing is made where it points" entries "$box/realapp" 0
 
   new_repo weblink
   rmdir "$repo/web"
@@ -342,12 +420,25 @@ if [ -L "$site/web.js" ]; then
   mkdir -p "$box/stranger/scripts" "$box/stranger/web"
   ln -s "$repo/scripts/build-wasm.sh" "$box/stranger/scripts/build-wasm.sh"
   through_file_link() {
-    if env TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" bash "$box/stranger/scripts/build-wasm.sh" > "$box/last" 2>&1; then return 1; fi
+    if env HOME="$box/home" TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" bash "$box/stranger/scripts/build-wasm.sh" > "$box/last" 2>&1; then return 1; fi
     grep -q "by its real path" "$box/last"
   }
   check "the script reached through a link to its file is refused" through_file_link
   check "nothing is built where the link is" test ! -e "$box/stranger/web/react-app"
   check "and its own site is as it was" all_are old
+
+  # A link to the directory the file is in does lead to the file, so the
+  # repo is still the one that holds it, not the one that holds the link.
+  new_repo holder old
+  mkdir -p "$box/visitor/web"
+  ln -s "$repo/scripts" "$box/visitor/scripts"
+  through_directory_link() {
+    env HOME="$box/home" TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" \
+      bash "$box/visitor/scripts/build-wasm.sh" > "$box/last" 2>&1
+  }
+  check "the script reached through a link to its directory builds" through_directory_link
+  check "into the repo that holds the file" all_are new
+  check "and not where the link is" test ! -e "$box/visitor/web/react-app"
 
   # Cargo works on the real path of the repo, so that is the one to remap,
   # also when the repo is reached through a link.
@@ -366,6 +457,23 @@ if [ -L "$site/web.js" ]; then
 else
   echo "skip - symbolic link cases: this shell makes none. Run this file on Linux or in WSL before a release."
 fi
+
+# --- The script as a file ---------------------------------------------------
+
+# Fed through a pipe there is no file, so no repo to work on. It must not
+# take the directory it was started from for one.
+new_repo piped old
+mkdir -p "$box/pipe-from/scripts" "$box/pipe-from/web"
+through_pipe() {
+  if (cd "$box/pipe-from/scripts" && env HOME="$box/home" TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" \
+    bash < "$repo/scripts/build-wasm.sh" > "$box/last" 2>&1); then
+    return 1
+  fi
+  grep -q "by its real path" "$box/last"
+}
+check "the script fed through a pipe is refused" through_pipe
+check "nothing is built where it was started" test ! -e "$box/pipe-from/web/react-app"
+check "and the site of the repo it came from is as it was" all_are old
 
 # --- What the build is told -------------------------------------------------
 
@@ -408,6 +516,16 @@ if [ -z "${BUILD_WASM_TEST_NESTED:-}" ]; then
   }
   check "this test file stops when it cannot make its temporary directory" stops_without_tmp
   check "and deletes nothing in the directory it was started from" grep -qx keep "$box/started-here/file"
+  stops_with_relative_tmp() {
+    if (cd "$box/started-here" && BUILD_WASM_TEST_NESTED=1 TMPDIR=. bash "$test_file" > "$box/last" 2>&1); then
+      return 1
+    fi
+    grep -q "TMPDIR is a relative path" "$box/last"
+  }
+  check "it stops on a relative TMPDIR too" stops_with_relative_tmp
+  check "and leaves nothing behind where it was started" entries "$box/started-here" 1
+else
+  echo "skip - the checks of this file on itself: BUILD_WASM_TEST_NESTED is set"
 fi
 
 echo "# failures: $failures"

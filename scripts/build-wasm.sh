@@ -13,11 +13,19 @@
 # What it does not do:
 # - Like any build, it fills cargo's target directory and the caches of
 #   cargo and wasm-pack. "No site file was changed" is about the site.
+#   It stops if Cargo.lock is out of step with a Cargo.toml, and says so
+#   if the build changed it all the same.
+# - It makes the site directory, and the directories above it, when they
+#   are missing, and leaves them there if a later step fails.
 # - It does not guard against another program changing the site directory
 #   while it runs.
-# - Stopped by a signal sent to it alone, it cleans up and exits, but the
+# - Stopped by TERM or HUP sent to it alone, it cleans up and exits, but the
 #   build it started may go on for a while and write in its scratch
-#   directory again.
+#   directory again. INT or QUIT sent to it alone wait for the build to end.
+#   A signal that lands while the five files are being renamed can leave old
+#   and new files side by side, with no message: run it again.
+# - A run that is killed outright leaves its copies (.<name>.build-wasm.<n>)
+#   in the site directory. They are safe to delete.
 #
 # Panic messages carry the path of the source file they come from. Without
 # the remapping below, the published binary would name the home directory
@@ -51,16 +59,18 @@ case "$#" in
   *) fail "takes --check or no argument at all. No site file was changed." ;;
 esac
 
-# The repo is the one this file sits in, so the file has to be reached by
-# its own path: through a symbolic link it would name another place.
+# The repo is the one this file really sits in. A symbolic link to the file
+# is refused, because the directory the link is in says nothing about where
+# the file is. A link to a directory above it is followed to the real place
+# (cd -P), so the repo is still the one that holds the file.
 self="${BASH_SOURCE[0]:-}"
 if [ -z "$self" ] || [ ! -f "$self" ] || [ -L "$self" ]; then
   fail "run this script as a file, by its real path, not through a symbolic link or a pipe. No site file was changed."
 fi
 
-# The physical path: it is the one cargo sees, so it is the one to remap.
+# The physical path is also the one cargo sees, so it is the one to remap.
 # The x keeps a newline at the end of a directory name from being dropped.
-root="$(cd -- "$(dirname -- "$self")/.." && pwd -P && printf x)" \
+root="$(cd -P -- "$(dirname -- "$self")" && cd -P -- .. && pwd -P && printf x)" \
   || fail "cannot tell which repo this script is in. No site file was changed."
 root="${root%x}"
 root="${root%$'\n'}"
@@ -75,6 +85,7 @@ done
 [ -d "$root/web" ] || fail "$root/web is not a directory. No site file was changed."
 
 command -v wasm-pack >/dev/null 2>&1 || fail "wasm-pack is not installed. No site file was changed."
+command -v cargo >/dev/null 2>&1 || fail "cargo is not installed. No site file was changed."
 
 if [ -z "${CARGO_HOME:-}" ] || [ -z "${RUSTUP_HOME:-}" ]; then
   [ -n "${HOME:-}" ] || fail "HOME is not set, so the cargo and rustup directories are unknown. No site file was changed."
@@ -107,15 +118,16 @@ case "$work" in
 esac
 [ -d "$work" ] || fail "the scratch directory $work is not there. No site file was changed."
 
-# On the way out the script removes that directory and any copy of its own
-# that it had not yet put in place.
+# On the way out the script removes any copy of its own that it had not yet
+# put in place, then that directory. One removal that fails does not stop
+# the others.
 staged=()
 cleanup() {
-  rm -rf -- "$work"
   local copy
   for copy in "${staged[@]+"${staged[@]}"}"; do
-    rm -f -- "$copy"
+    rm -f -- "$copy" || true
   done
+  rm -rf -- "$work" || true
 }
 trap cleanup EXIT
 
@@ -128,8 +140,22 @@ checksum() { # checksum <file>: its sha256, or nothing where no tool gives one
 }
 
 cd -- "$root/web" || fail "cannot enter $root/web. No site file was changed."
+
+# --locked below stops cargo from changing Cargo.lock, but wasm-pack asks
+# cargo about the workspace on its own first, without it, and that rewrites
+# a lockfile that is out of step with a Cargo.toml. So the lockfile is
+# checked before the build, and compared with what it was after it.
+lockfile="$root/Cargo.lock"
+[ -f "$lockfile" ] || fail "there is no $lockfile. No site file was changed."
+cargo metadata --locked --format-version 1 >/dev/null \
+  || fail "Cargo.lock is out of step with a Cargo.toml, or cargo could not read the workspace. Bring it up to date with cargo first. No site file was changed."
+cp -- "$lockfile" "$work/Cargo.lock.before" \
+  || fail "could not read $lockfile. No site file was changed."
+
 wasm-pack build --target web --release --out-dir "$work/out" -- --locked \
   || fail "the build failed. No site file was changed."
+cmp -s -- "$lockfile" "$work/Cargo.lock.before" \
+  || fail "the build changed $lockfile. Look at it with git diff. No site file was changed."
 for output in "${outputs[@]}"; do
   [ -f "$work/out/$output" ] || fail "the build left no $output. No site file was changed."
 done
@@ -138,7 +164,8 @@ echo "build-wasm: web_bg.wasm sha256 $(checksum "$work/out/web_bg.wasm")"
 if [ "$mode" = "check" ]; then
   different=""
   for output in "${outputs[@]}"; do
-    if [ -f "$dest/$output" ] && cmp -s -- "$work/out/$output" "$dest/$output"; then
+    # A symbolic link is not the file, even to one with the same bytes.
+    if [ -f "$dest/$output" ] && [ ! -L "$dest/$output" ] && cmp -s -- "$work/out/$output" "$dest/$output"; then
       echo "build-wasm: same       $output"
     else
       echo "build-wasm: DIFFERENT  $output"
