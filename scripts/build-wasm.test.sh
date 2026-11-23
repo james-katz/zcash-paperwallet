@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 # Run with: bash scripts/build-wasm.test.sh
 #
-# Checks what build-wasm.sh writes, and that it deletes nothing. wasm-pack
-# is replaced by a stub, so nothing is compiled and the repo is not touched.
+# Checks what build-wasm.sh writes and what it leaves alone. The script works
+# on the repo it sits in, so every case runs a copy of it inside a temporary
+# "repo", with wasm-pack replaced by a stub: nothing is compiled and the real
+# repo is never written to.
 set -uo pipefail
 
-script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/build-wasm.sh"
-repo_web="$(cd "$(dirname "${BASH_SOURCE[0]}")/../web" && pwd)"
-box="$(mktemp -d)"
+source_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/build-wasm.sh"
+box="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf -- "$box"' EXIT
 
+outputs=(package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts)
+
 # A wasm-pack that writes the five files and a .gitignore into --out-dir.
-#   STUB_FAILS   fail instead
-#   STUB_TOUCH   also create this file, as if something wrote it mid-build
-#   STUB_FLAGS   save the rustflags it was given into this file
+#   STUB_CONTENT   what to write in them (default: new)
+#   STUB_FAILS     exit 1 before writing anything
+#   STUB_LATE      write the files, then exit 1
+#   STUB_PARTIAL   leave web.d.ts out
+#   STUB_FLAGS     save the rustflags it was given into this file
+#   STUB_BLOCK     create, in this directory, the name the script is about to
+#                  use for its copy of web.js (the script is this stub's parent)
 mkdir "$box/bin"
 cat > "$box/bin/wasm-pack" <<'STUB'
 #!/usr/bin/env bash
@@ -23,14 +30,31 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 [ -z "${STUB_FAILS:-}" ] || exit 1
-[ -z "${STUB_TOUCH:-}" ] || echo "mid-build" > "$STUB_TOUCH"
 [ -z "${STUB_FLAGS:-}" ] || printf '%s' "${CARGO_ENCODED_RUSTFLAGS:-}" > "$STUB_FLAGS"
+[ -z "${STUB_BLOCK:-}" ] || echo "foreign" > "$STUB_BLOCK/.web.js.build-wasm.$PPID"
 mkdir -p "$out"
 for name in package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts .gitignore; do
-  echo "new" > "$out/$name"
+  if [ -n "${STUB_PARTIAL:-}" ] && [ "$name" = "web.d.ts" ]; then continue; fi
+  echo "${STUB_CONTENT:-new}" > "$out/$name"
 done
+[ -z "${STUB_LATE:-}" ] || exit 1
 STUB
 chmod +x "$box/bin/wasm-pack"
+
+# A cp that fails on its third call, for a copy that stops halfway.
+mkdir "$box/badcp"
+cat > "$box/badcp/cp" <<'STUB'
+#!/usr/bin/env bash
+count="$(cat "$CP_COUNT" 2>/dev/null || echo 0)"
+count=$((count + 1))
+echo "$count" > "$CP_COUNT"
+[ "$count" -ne 3 ] || exit 1
+for real in /usr/bin/cp /bin/cp; do
+  if [ -x "$real" ]; then exec "$real" "$@"; fi
+done
+exit 1
+STUB
+chmod +x "$box/badcp/cp"
 
 failures=0
 check() { # check <description> <command...>
@@ -44,176 +68,203 @@ check() { # check <description> <command...>
   fi
 }
 
-build() { PATH="$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
-build_from() { (cd "$1" && shift && PATH="$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1); }
-build_with() { env "$1" PATH="$box/bin:/usr/bin:/bin" bash "$script" "$2" >/dev/null 2>&1; } # build_with VAR=value <dir>
-build_without_wasm_pack() { PATH="/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
-refused() { ! "$@"; }
-previous_output() { # previous_output <dir>: the five files, marked old
-  mkdir -p "$1"
-  for name in package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts; do
-    echo "old" > "$1/$name"
+# new_repo <name>: a fresh copy of the script in a repo of its own. With
+# "old" as second argument, the site already holds a previous output.
+new_repo() {
+  repo="$box/$1"
+  site="$repo/web/react-app/src/wasm"
+  mkdir -p "$repo/scripts" "$repo/web" "$repo/tmp"
+  cp "$source_script" "$repo/scripts/build-wasm.sh"
+  if [ "${2:-}" = "old" ]; then
+    mkdir -p "$site"
+    for name in "${outputs[@]}"; do echo "old" > "$site/$name"; done
+  fi
+}
+
+# run [VAR=value ...] [-- argument ...]: the copy of the script in $repo, with
+# the stub first on the PATH. What it prints goes to $box/last.
+run() {
+  local settings=()
+  while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do
+    settings+=("$1")
+    shift
+  done
+  [ "$#" -eq 0 ] || shift
+  env TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" "${settings[@]+"${settings[@]}"}" \
+    bash "$repo/scripts/build-wasm.sh" "$@" > "$box/last" 2>&1
+}
+
+# refused <words> <run arguments...>: the script fails and says <words>.
+refused() {
+  local words="$1"
+  shift
+  if run "$@"; then return 1; fi
+  grep -q -- "$words" "$box/last"
+}
+
+all_are() { # all_are <word>: every output file in the site holds <word>
+  local name
+  for name in "${outputs[@]}"; do
+    grep -qx -- "$1" "$site/$name" || return 1
   done
 }
-count_remaps() { [ "$(tr '\037' '\n' < "$1" | grep -c '^--remap-path-prefix=')" -eq 3 ]; }
+entries() { [ "$(ls -A "$1" | wc -l)" -eq "$2" ]; } # entries <dir> <count>
 
-# A relative path names one place for the checks and another for the build.
-mkdir -p "$box/caller/precious"
-echo "keep" > "$box/caller/precious/file"
-check "a relative destination that exists is refused" refused build_from "$box/caller" precious
-check "and what it named is still there" test -f "$box/caller/precious/file"
-relative="zz-build-wasm-test-relative"
-check "a relative destination that does not exist is refused" refused build_from "$box/caller" "$relative"
-check "and nothing was made where the caller stood" test ! -e "$box/caller/$relative"
-check "nor inside the repo" test ! -e "$repo_web/$relative"
+# --- Building into the site -------------------------------------------------
 
-check "a destination with .. in it is refused" refused build "$box/caller/../caller/out"
-check "and nothing was made" test ! -e "$box/caller/out"
+new_repo fresh
+check "with no argument it builds" run
+check "into the site, which it creates" all_are new
+check "five files and nothing else, no .gitignore and no copy in progress" entries "$site" 5
+check "and the scratch directory is gone" entries "$repo/tmp" 0
 
-# Directories that are not a previous output, even when the names look right.
-mkdir -p "$box/other"
-echo "keep" > "$box/other/notes.txt"
-check "a directory with other files is refused" refused build "$box/other"
-check "and its files are still there" grep -q keep "$box/other/notes.txt"
+new_repo again old
+echo "keep" > "$site/notes.txt"
+check "a previous output is replaced" run
+check "by the five new files" all_are new
+check "and a file of another name next to them is left alone" grep -qx keep "$site/notes.txt"
+check "with nothing else added" entries "$site" 6
 
-mkdir -p "$box/project"
-echo "keep" > "$box/project/README.md"
-echo "keep" > "$box/project/package.json"
-check "a directory holding someone's README.md and package.json is refused" refused build "$box/project"
-check "and the README.md is still there" grep -q keep "$box/project/README.md"
-check "and the package.json is untouched" grep -q keep "$box/project/package.json"
+# A new file takes the place of the old one; it is not written into it. If
+# the old one is a hard link, the file at the other end must not change.
+new_repo linked old
+echo "precious" > "$box/outside"
+rm "$site/web.js"
+if ln "$box/outside" "$site/web.js" 2>/dev/null; then
+  check "a previous output with a hard link in it is replaced" run
+  check "by the new files" all_are new
+  check "and the file at the other end of the link is untouched" grep -qx precious "$box/outside"
+else
+  echo "skip - hard link case: this shell makes none"
+fi
 
-mkdir -p "$box/partial"
-echo "keep" > "$box/partial/web.js"
-check "a directory holding only one of the output names is refused" refused build "$box/partial"
-check "and that file is untouched" grep -q keep "$box/partial/web.js"
+# --- Comparing, without writing ---------------------------------------------
 
-previous_output "$box/extra"
-echo "keep" > "$box/extra/.gitignore"
-check "a previous output with one more file in it is refused" refused build "$box/extra"
-check "and its files are untouched" grep -q old "$box/extra/web_bg.wasm"
+new_repo same old
+ls -i "$site" > "$box/inodes-before"
+check "--check passes when the build is what the site holds" run STUB_CONTENT=old -- --check
+check "and says so" grep -q "byte for byte" "$box/last"
+ls -i "$site" > "$box/inodes-after"
+check "without putting new files in place of the ones that were there" cmp -s "$box/inodes-before" "$box/inodes-after"
+check "--check fails when the build differs" refused "is not what is in" -- --check
+check "names the files that differ" grep -q "DIFFERENT  web_bg.wasm" "$box/last"
+check "and leaves the site as it was" all_are old
+check "with no copy in progress" entries "$site" 5
 
-mkdir -p "$box/nested/web_bg.wasm"
-check "a directory where an output name is a folder is refused" refused build "$box/nested"
-check "and the folder is still there" test -d "$box/nested/web_bg.wasm"
+new_repo absent
+check "--check fails when the site holds no WASM" refused "is not what is in" -- --check
+check "and does not create it" test ! -e "$repo/web/react-app"
+check "nor leave its scratch directory" entries "$repo/tmp" 0
 
-echo "keep" > "$box/afile"
-check "a destination that is a file is refused" refused build "$box/afile"
-check "and the file is still there" grep -q keep "$box/afile"
+# --- Arguments --------------------------------------------------------------
 
-# The cases that must work.
-check "a new directory is built" build "$box/fresh/wasm"
-check "with the five files in it" test "$(ls -A "$box/fresh/wasm" | wc -l)" -eq 5
-check "the WASM among them" grep -q new "$box/fresh/wasm/web_bg.wasm"
-check "and no .gitignore" test ! -e "$box/fresh/wasm/.gitignore"
+new_repo args old
+check "a directory as argument is refused: there is no destination to choose" refused "unknown argument" -- "$box/elsewhere"
+check "and nothing is built there" test ! -e "$box/elsewhere"
+check "an empty argument is refused" refused "unknown argument" -- ""
+check "a misspelt --check is refused" refused "unknown argument" -- --chek
+check "a second argument is refused" refused "takes --check or no argument" -- --check "$box/elsewhere"
+check "and the site is as it was after all of them" all_are old
 
-mkdir -p "$box/empty"
-check "an empty directory is built into" build "$box/empty"
-check "with the WASM in it" test -f "$box/empty/web_bg.wasm"
+# --- Failures ---------------------------------------------------------------
 
-previous_output "$box/again"
-check "a previous output is written over" build "$box/again/"
-check "by the new files" grep -q new "$box/again/web_bg.wasm"
-check "all five of them" refused grep -q -r old "$box/again"
+new_repo failing old
+check "a build that fails is reported" refused "the build failed" STUB_FAILS=1
+check "also when it fails after writing its files" refused "the build failed" STUB_LATE=1
+check "a build that leaves a file out is reported" refused "left no web.d.ts" STUB_PARTIAL=1
+check "and the site is as it was after all three" all_are old
+check "with no copy in progress" entries "$site" 5
+check "and no scratch directory left" entries "$repo/tmp" 0
 
-mkdir -p "$box/with space"
-check "a path with a space works" build "$box/with space/wasm"
-check "with the WASM in it" test -f "$box/with space/wasm/web_bg.wasm"
+new_repo nopack old
+no_wasm_pack() {
+  if env TMPDIR="$repo/tmp" PATH="/usr/bin:/bin" bash "$repo/scripts/build-wasm.sh" > "$box/last" 2>&1; then return 1; fi
+  grep -q "wasm-pack is not installed" "$box/last"
+}
+if PATH="/usr/bin:/bin" command -v wasm-pack >/dev/null 2>&1; then
+  echo "skip - missing wasm-pack case: there is a real one in /usr/bin or /bin"
+else
+  check "a missing wasm-pack is reported" no_wasm_pack
+  check "and the site is as it was" all_are old
+fi
 
-check "a build hands the path remappings to cargo" build_with STUB_FLAGS="$box/flags" "$box/flagged"
-check "three of them, separated the way cargo wants" count_remaps "$box/flags"
+new_repo halfway old
+check "a copy that fails halfway is reported" refused "could not copy" CP_COUNT="$box/cp-count" PATH="$box/badcp:$box/bin:/usr/bin:/bin"
+check "and the site still holds the five old files, not a mix" all_are old
+check "with the copies that were made removed" entries "$site" 5
 
-# Nothing is deleted, whatever turns up in the destination meanwhile.
-previous_output "$box/busy"
-check "a build finishes when a file appears in the destination meanwhile" build_with STUB_TOUCH="$box/busy/notes.txt" "$box/busy"
-check "and that file is still there" grep -q mid-build "$box/busy/notes.txt"
+new_repo blocked old
+check "a file already under the name of a copy is not overwritten" refused "is in the way" STUB_BLOCK="$box/blocked/web/react-app/src/wasm"
+check "it is still there" test "$(cat "$site"/.web.js.build-wasm.* 2>/dev/null)" = "foreign"
+check "the site still holds the five old files" all_are old
+check "and the script's own copies are removed" entries "$site" 6
 
-# A symbolic link is not followed. Skipped where the shell cannot make one.
-previous_output "$box/target"
-ln -s "$box/target" "$box/link" 2>/dev/null
-if [ -L "$box/link" ]; then
-  check "a symbolic link is refused" refused build "$box/link"
-  check "also with a trailing slash" refused build "$box/link/"
-  check "and what it points at is untouched" grep -q old "$box/target/web_bg.wasm"
+new_repo folder old
+rm "$site/web.d.ts"
+mkdir "$site/web.d.ts"
+check "an output name that is a folder is refused" refused "is not a plain file"
+check "and the files next to it are as they were" grep -qx old "$site/web_bg.wasm"
+check "with no copy in progress" entries "$site" 5
+
+# Symbolic links are not followed. Skipped where the shell cannot make one.
+new_repo symlinks old
+echo "elsewhere" > "$box/pointed"
+rm "$site/web.js"
+ln -s "$box/pointed" "$site/web.js" 2>/dev/null
+if [ -L "$site/web.js" ]; then
+  check "an output name that is a symbolic link is refused" refused "is not a plain file"
+  check "and what it points at is untouched" grep -qx elsewhere "$box/pointed"
+
+  new_repo sitelink
+  mkdir -p "$box/realsite" "$repo/web/react-app/src"
+  echo "keep" > "$box/realsite/web.js"
+  ln -s "$box/realsite" "$repo/web/react-app/src/wasm"
+  check "a site directory that is a symbolic link is refused" refused "is not a plain directory"
+  check "and what it points at is untouched" grep -qx keep "$box/realsite/web.js"
+  check "with nothing added to it" entries "$box/realsite" 1
+
+  # Cargo works on the real path of the repo, so that is the one to remap,
+  # also when the script is reached through a link.
+  new_repo real
+  ln -s "$box/real" "$box/alias"
+  printf '%s\037%s\037%s' \
+    "--remap-path-prefix=$box/c=/cargo" \
+    "--remap-path-prefix=$box/r=/rustup" \
+    "--remap-path-prefix=$box/real=/src" > "$box/expected-real"
+  through_alias() {
+    env STUB_FLAGS="$box/alias-flags" CARGO_HOME="$box/c" RUSTUP_HOME="$box/r" TMPDIR="$repo/tmp" \
+      PATH="$box/bin:/usr/bin:/bin" bash "$box/alias/scripts/build-wasm.sh" > "$box/last" 2>&1
+  }
+  check "a repo reached through a symbolic link is built" through_alias
+  check "with its real path remapped, not the link" cmp -s "$box/alias-flags" "$box/expected-real"
 else
   echo "skip - symbolic link cases: this shell makes none. Run this file on Linux or in WSL before a release."
 fi
 
-# A directory that cannot be listed is not an empty one.
-mkdir -p "$box/unlistable"
-echo "keep" > "$box/unlistable/package.json"
-chmod 300 "$box/unlistable"
-check "a directory that cannot be listed is refused" refused build "$box/unlistable"
-chmod 700 "$box/unlistable"
-check "and the file in it is untouched" grep -q keep "$box/unlistable/package.json"
+# --- What the build is told -------------------------------------------------
 
-# Nor is one that find fails on, whatever the reason.
-mkdir "$box/badfind"
-cat > "$box/badfind/find" <<'STUB'
-#!/usr/bin/env bash
-exit 2
-STUB
-chmod +x "$box/badfind/find"
-mkdir -p "$box/project2"
-echo "keep" > "$box/project2/README.md"
-echo "keep" > "$box/project2/package.json"
-build_with_bad_find() { PATH="$box/badfind:$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
-check "a destination that find fails on is refused" refused build_with_bad_find "$box/project2"
-check "and its package.json is untouched" grep -q keep "$box/project2/package.json"
-check "even when it is a previous output" refused build_with_bad_find "$box/again"
+new_repo flagged
+mkdir -p "$box/cargo home" "$box/rustup=home"
+printf '%s\037%s\037%s' \
+  "--remap-path-prefix=$box/cargo home=/cargo" \
+  "--remap-path-prefix=$box/rustup=home=/rustup" \
+  "--remap-path-prefix=$repo=/src" > "$box/expected-flags"
+check "a build is handed the three path remappings" run STUB_FLAGS="$box/given-flags" CARGO_HOME="$box/cargo home" RUSTUP_HOME="$box/rustup=home"
+check "cargo home, rustup home and repo, in the form cargo wants" cmp -s "$box/given-flags" "$box/expected-flags"
 
-# An empty argument must not become "build into the site". Run on a copy of
-# the script, so that a regression writes into the box and not into the repo.
-mkdir -p "$box/repo/scripts" "$box/repo/web"
-cp "$script" "$box/repo/scripts/build-wasm.sh"
-copy_build() { PATH="$box/bin:/usr/bin:/bin" bash "$box/repo/scripts/build-wasm.sh" "$@" >/dev/null 2>&1; }
-check "an empty argument is refused" refused copy_build ""
-check "and nothing was built into the default place" test ! -e "$box/repo/web/react-app"
-check "a second argument is refused" refused copy_build "$box/two" "$box/three"
-check "and nothing was built" test ! -e "$box/two"
-check "no argument builds into the default place" copy_build
-check "which is the site" test -f "$box/repo/web/react-app/src/wasm/web_bg.wasm"
-
-# Five files are not a previous output unless they are the five.
-mkdir -p "$box/fivenames"
-for name in a b c d e; do echo "keep" > "$box/fivenames/$name"; done
-check "five files with other names are refused" refused build "$box/fivenames"
-check "and they are untouched" grep -q keep "$box/fivenames/a"
-
-previous_output "$box/fivewithdir"
-rm "$box/fivewithdir/web.d.ts"
-mkdir "$box/fivewithdir/web.d.ts"
-check "five entries where one output name is a folder are refused" refused build "$box/fivewithdir"
-check "and the files next to it are untouched" grep -q old "$box/fivewithdir/web_bg.wasm"
-
-# A new file takes the place of the old one; it is not written into it. If
-# the old one is a hard link, the file at the other end must not change.
-previous_output "$box/linked"
-echo "precious" > "$box/outside"
-rm "$box/linked/web.js"
-if ln "$box/outside" "$box/linked/web.js" 2>/dev/null; then
-  check "a previous output with a hard link in it is written over" build "$box/linked"
-  check "by the new file" grep -q new "$box/linked/web.js"
-  check "and the file at the other end of the link is untouched" grep -q precious "$box/outside"
-else
-  echo "skip - hard link case: this shell makes none"
-fi
-check "no copy in progress is left behind" test "$(ls -A "$box/fresh/wasm" | wc -l)" -eq 5
-
-# Without HOME the directories to remap are unknown, unless they are given.
-no_home() { env -u HOME -u CARGO_HOME -u RUSTUP_HOME PATH="$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
-given_homes() { env -u HOME CARGO_HOME="$box/cargo" RUSTUP_HOME="$box/rustup" PATH="$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
-check "a build without HOME is refused" refused no_home "$box/nohome"
-check "and nothing was built" test ! -e "$box/nohome"
-check "unless the cargo and rustup directories are given" given_homes "$box/nohome"
-
-# Failures must leave what was there.
-previous_output "$box/kept"
-check "a failed build is reported" refused build_with STUB_FAILS=1 "$box/kept"
-check "and leaves the previous output" grep -q old "$box/kept/web_bg.wasm"
-
-check "a missing wasm-pack is reported" refused build_without_wasm_pack "$box/kept"
-check "and leaves the previous output" grep -q old "$box/kept/web_bg.wasm"
+new_repo nohome
+no_home() {
+  if env -u HOME -u CARGO_HOME -u RUSTUP_HOME TMPDIR="$repo/tmp" PATH="$box/bin:/usr/bin:/bin" \
+    bash "$repo/scripts/build-wasm.sh" > "$box/last" 2>&1; then return 1; fi
+  grep -q "HOME is not set" "$box/last"
+}
+given_homes() {
+  env -u HOME CARGO_HOME="$box/cargo home" RUSTUP_HOME="$box/rustup=home" TMPDIR="$repo/tmp" \
+    PATH="$box/bin:/usr/bin:/bin" bash "$repo/scripts/build-wasm.sh" > "$box/last" 2>&1
+}
+check "a build without HOME is refused, in the script's own words" no_home
+check "and nothing is built" test ! -e "$repo/web/react-app"
+check "unless the cargo and rustup directories are given" given_homes
 
 echo "# failures: $failures"
 [ "$failures" -eq 0 ]
