@@ -35,9 +35,17 @@ dest="${1-$root/web/react-app/src/wasm}"
 
 command -v wasm-pack >/dev/null 2>&1 || fail "wasm-pack is not installed. Nothing was changed."
 
-# The scratch directory, and the only thing this script removes.
+# The scratch directory. Apart from it, the only thing this script removes is
+# a copy of its own that it was still putting in place when it stopped.
 work="$(mktemp -d)"
-trap 'rm -rf -- "$work"' EXIT
+staged=""
+cleanup() {
+  rm -rf -- "$work"
+  if [ -n "$staged" ]; then
+    rm -f -- "$staged"
+  fi
+}
+trap cleanup EXIT
 
 # The five files this script writes, and the only ones it ever touches.
 outputs=(package.json web.js web.d.ts web_bg.wasm web_bg.wasm.d.ts)
@@ -57,8 +65,13 @@ case "$dest/" in
 esac
 
 # The files are written into a directory that is new, empty, or holds a
-# previous output: all five files and nothing else. Nothing is ever deleted
-# from the destination, and no other directory is accepted.
+# previous output: all five files and nothing else. No other directory is
+# accepted, and nothing in the destination is deleted except those five
+# files as the new ones take their place.
+#
+# Only the last part of the path is checked for a symbolic link. A link
+# higher up is followed, as it would be by any command given that path, and
+# the rule above then applies to the directory it leads to.
 if [ -e "$dest" ] || [ -L "$dest" ]; then
   [ -d "$dest" ] && [ ! -L "$dest" ] || fail "$dest is not a directory. Nothing was changed."
   # A directory that cannot be listed is not an empty one. The list goes to
@@ -81,6 +94,9 @@ if [ -e "$dest" ] || [ -L "$dest" ]; then
   fi
 fi
 
+if [ -z "${CARGO_HOME:-}" ] || [ -z "${RUSTUP_HOME:-}" ]; then
+  [ -n "${HOME:-}" ] || fail "HOME is not set, so the cargo and rustup directories are unknown. Nothing was changed."
+fi
 cargo_home="${CARGO_HOME:-$HOME/.cargo}"
 rustup_home="${RUSTUP_HOME:-$HOME/.rustup}"
 
@@ -103,9 +119,28 @@ for output in "${outputs[@]}"; do
   [ -f "$work/out/$output" ] || fail "the build left no $output. Nothing was changed."
 done
 
+# Each file is copied under a name of its own and then renamed into place.
+# A rename swaps the directory entry: it never writes into the file that was
+# there, which could be a hard link to a file somewhere else, and it leaves
+# either the old file or the new one, never half of one.
 mkdir -p -- "$dest"
 for output in "${outputs[@]}"; do
-  cp -f -- "$work/out/$output" "$dest/$output"
+  staged="$dest/.$output.build-wasm.$$"
+  if [ -e "$staged" ] || [ -L "$staged" ]; then
+    taken="$staged"
+    staged=""
+    fail "$taken is in the way. Remove it and run again."
+  fi
+  cp -- "$work/out/$output" "$staged"
+  mv -f -- "$staged" "$dest/$output"
+  staged=""
 done
 
-sha256sum "$dest/web_bg.wasm"
+# The checksum is for the person at the keyboard; the files are in place.
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256sum "$dest/web_bg.wasm"
+elif command -v shasum >/dev/null 2>&1; then
+  shasum -a 256 "$dest/web_bg.wasm"
+else
+  echo "build-wasm: no sha256sum or shasum here; $dest/web_bg.wasm was written." >&2
+fi

@@ -136,7 +136,7 @@ if [ -L "$box/link" ]; then
   check "also with a trailing slash" refused build "$box/link/"
   check "and what it points at is untouched" grep -q old "$box/target/web_bg.wasm"
 else
-  echo "ok - symbolic link cases skipped: this shell makes none"
+  echo "skip - symbolic link cases: this shell makes none. Run this file on Linux or in WSL before a release."
 fi
 
 # A directory that cannot be listed is not an empty one.
@@ -173,6 +173,39 @@ check "a second argument is refused" refused copy_build "$box/two" "$box/three"
 check "and nothing was built" test ! -e "$box/two"
 check "no argument builds into the default place" copy_build
 check "which is the site" test -f "$box/repo/web/react-app/src/wasm/web_bg.wasm"
+
+# Five files are not a previous output unless they are the five.
+mkdir -p "$box/fivenames"
+for name in a b c d e; do echo "keep" > "$box/fivenames/$name"; done
+check "five files with other names are refused" refused build "$box/fivenames"
+check "and they are untouched" grep -q keep "$box/fivenames/a"
+
+previous_output "$box/fivewithdir"
+rm "$box/fivewithdir/web.d.ts"
+mkdir "$box/fivewithdir/web.d.ts"
+check "five entries where one output name is a folder are refused" refused build "$box/fivewithdir"
+check "and the files next to it are untouched" grep -q old "$box/fivewithdir/web_bg.wasm"
+
+# A new file takes the place of the old one; it is not written into it. If
+# the old one is a hard link, the file at the other end must not change.
+previous_output "$box/linked"
+echo "precious" > "$box/outside"
+rm "$box/linked/web.js"
+if ln "$box/outside" "$box/linked/web.js" 2>/dev/null; then
+  check "a previous output with a hard link in it is written over" build "$box/linked"
+  check "by the new file" grep -q new "$box/linked/web.js"
+  check "and the file at the other end of the link is untouched" grep -q precious "$box/outside"
+else
+  echo "skip - hard link case: this shell makes none"
+fi
+check "no copy in progress is left behind" test "$(ls -A "$box/fresh/wasm" | wc -l)" -eq 5
+
+# Without HOME the directories to remap are unknown, unless they are given.
+no_home() { env -u HOME -u CARGO_HOME -u RUSTUP_HOME PATH="$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
+given_homes() { env -u HOME CARGO_HOME="$box/cargo" RUSTUP_HOME="$box/rustup" PATH="$box/bin:/usr/bin:/bin" bash "$script" "$@" >/dev/null 2>&1; }
+check "a build without HOME is refused" refused no_home "$box/nohome"
+check "and nothing was built" test ! -e "$box/nohome"
+check "unless the cargo and rustup directories are given" given_homes "$box/nohome"
 
 # Failures must leave what was there.
 previous_output "$box/kept"
