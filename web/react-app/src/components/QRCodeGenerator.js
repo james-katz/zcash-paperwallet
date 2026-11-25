@@ -9,11 +9,9 @@ const QRCodeGenerator = ({ data, scale = 5 }) => {
       const canvas = canvasRef.current;
 
       // Generate the QR code and draw it on the canvas
-      QRCode.toCanvas(canvas, data, { scale: scale }, (error) => {
-        if (error) {
-          console.error("Error generating QR code:", error);
-        }
-      });
+      // Nothing is logged on failure: the data can be a key, and this app
+      // never writes to the console. A failed QR leaves the canvas blank.
+      QRCode.toCanvas(canvas, data, { scale: scale }, () => {});
     }
   }, [data, scale]);
 

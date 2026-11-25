@@ -1,0 +1,2 @@
+# Shell scripts run under bash, which stops on a carriage return.
+*.sh text eol=lf

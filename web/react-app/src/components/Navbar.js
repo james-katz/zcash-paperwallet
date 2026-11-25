@@ -6,7 +6,7 @@ function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-logo">
-          <img className='navbar-logo-img' src="logo192.png"/>
+          <img className='navbar-logo-img' src="logo192.png" alt="" />
           <p className="navbar-title">Zcash Paper Wallet Generator</p>
         </div>
       <div className="navbar-links">

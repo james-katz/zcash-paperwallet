@@ -1,0 +1,6 @@
+# Pinned so that every build, local or CI, uses the same compiler.
+[toolchain]
+channel = "1.100.0"
+profile = "minimal"
+components = ["clippy"]
+targets = ["wasm32-unknown-unknown"]

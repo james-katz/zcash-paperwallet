@@ -1,33 +1,19 @@
-import React, { useRef, useEffect } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
+import WalletCard from "./WalletCard";
+import { loadTemplate } from "./template";
 import "./WalletCardImg.css";
 
-function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight) {
-    const words = text.split("");
-    let line = "";
-    let currentY = y;
-   
-    ctx.font = `${fontSize}px Roboto Sans`;
+const WORD_MASK = "••••••";
 
-    for (let i = 0; i < words.length; i++) {
-      const testLine = line + words[i];
-      const testWidth = ctx.measureText(testLine).width;
-  
-      if (testWidth > maxWidth && i > 0) {
-        // Draw the current line and move to the next
-        ctx.fillText(line, x, currentY);
-        line = words[i]; // Start a new line
-        currentY += lineHeight; // Move down by line height
-      } else {
-        line = testLine;
-      }
-    }
-  
-    // Draw the remaining text
-    ctx.fillText(line, x, currentY);
-} 
+export const TEMPLATE_FAILED_NOTE =
+  "The wallet image did not load, so this wallet is shown as text.";
 
-function printRecoveryPhrase(ctx, seed) {
+export const TEMPLATE_PENDING_NOTE = "Preparing the wallet image...";
+
+// Draws the 24 slots of the recovery phrase: the words when `masked` is
+// false, a row of dots otherwise.
+function printRecoveryPhrase(ctx, seed, masked) {
   const startX = 1150;
   const startY = 219;
   let currentX = startX;
@@ -36,95 +22,149 @@ function printRecoveryPhrase(ctx, seed) {
 
   const words = seed.split(" ");
 
-  // WARNING: DO NOT UNCOMMENT NEXT LINE!!!  
-  // words[0] = "refrigerator"; // Test long word
-  // words[11] = "refrigerator"; // Test long word
-
   for(let i = 0; i < words.length; i ++) {
-    if(i == 12) {
+    if(i === 12) {
       currentX = startX + 180;
       currentY = startY;
-    } 
+    }
 
     ctx.font = "24px Sans";
     ctx.fillStyle = "#000"; // Black text
-    ctx.fillText(`${words[i]}`, currentX, currentY);
+    ctx.fillText(masked ? WORD_MASK : `${words[i]}`, currentX, currentY);
 
     currentY += lineSpace;
   }
 
 }
 
-const WalletCardImg = ({ wallet }) => {
+// The template reserves a frame for a QR code of the phrase. There is none
+// (see printFrameNote), so the frame carries one of these notes instead.
+export const NO_SEED_QR_NOTE = [
+  "No QR code here,",
+  "on purpose.",
+  "Never photograph",
+  "or scan these words.",
+];
+
+// Drawn while the words are masked. If a print ever goes out like that, this
+// is what lands on the paper, so it has to make sense there as well.
+export const SEED_HIDDEN_NOTE = [
+  "Words hidden on screen.",
+  "Reading this on paper?",
+  "The print failed.",
+  "Do not use this wallet.",
+];
+
+function printFrameNote(ctx, lines) {
+  const centerX = 1271; // middle of the 266 px frame that starts at x 1138
+  let currentY = 655;
+
+  ctx.save();
+  ctx.font = "22px Sans";
+  ctx.fillStyle = "#000";
+  ctx.textAlign = "center";
+  lines.forEach((line) => {
+    ctx.fillText(line, centerX, currentY);
+    currentY += 30;
+  });
+  ctx.restore();
+}
+
+const WalletCardImg = ({ wallet, showSeed = false }) => {
   const canvasRef = useRef(null);
+  const assetsRef = useRef(null);
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [failed, setFailed] = useState(false);
 
+  // Everything asynchronous is prepared once per wallet: the template image
+  // (already in memory, see template.js) and the two QR codes.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    let cancelled = false;
+    assetsRef.current = null;
+    setAssetsReady(false);
+    setFailed(false);
 
-    const renderWallet = async () => {
-      // Hardcoded background image
-      const bgImage = new Image();
-      bgImage.src = "/Paper_Zcash_Wallet_vazio.jpg";
+    const prepare = async () => {
+      try {
+        const bgImage = await loadTemplate();
 
-      bgImage.onload = async () => {
-        // Set canvas size to match the background image
-        canvas.width = bgImage.width;
-        canvas.height = bgImage.height;
-
-        // Draw the background image
-        ctx.drawImage(bgImage, 0, 0);
-
-        // Add ufvk text
-        // drawWrappedText(ctx, wallet.ufvk, 180, 210, 430, 12, 12);
-
-        // Add address text
-        // drawWrappedText(ctx, wallet.address, 80, 685, 355, 24, 25);
-
-        /*
-        // Add reference address text, rotated
-        const croppedAddr = `${wallet.address.slice(0, 8)} ... ${wallet.address.slice(-8)}`;
-
-        ctx.save(); // Save the canvas state
-        ctx.translate(2240, 700); // Move origin to (50, 300)
-        ctx.rotate(-Math.PI / 2); // Rotate -90º (clockwise)
-        ctx.font = "32px Arial";
-        ctx.fillText(`Address: ${croppedAddr}`, 0, 0);
-        ctx.restore(); // Restore the canvas state to undo rotation
-        */
-
-        // Add text for wallet birthday
-        ctx.font = "32px Arial";
-        ctx.fillStyle = "#000"; // Black text
-        ctx.fillText(`${wallet.birthday}`, 1260, 995);
-
-        // Add recovery phrase
-        printRecoveryPhrase(ctx, wallet.seed);
-
-        // Generate and add QR code for the ufvk
         const ufvkQrCanvas = document.createElement("canvas");
         await QRCode.toCanvas(ufvkQrCanvas, wallet.ufvk, { width: 311});
 
-        // Generate and add QR code for the address
         const addrQrCanvas = document.createElement("canvas");
         await QRCode.toCanvas(addrQrCanvas, wallet.address, { width: 265});
 
-        // Generate and add QR code for the recovery phrase
-        const seedQrCanvas = document.createElement("canvas");
-        await QRCode.toCanvas(seedQrCanvas, wallet.seed, { width: 266});
+        // No QR code for the recovery phrase: a QR is made to be photographed,
+        // and the phrase must only ever exist as words on the printed paper.
 
-        // Draw the QR code on the main canvas
-        ctx.drawImage(ufvkQrCanvas, 95, 173); // UFVK
-        ctx.drawImage(addrQrCanvas, 630, 191); // Unified Address
-        ctx.drawImage(seedQrCanvas, 1138, 561); // Recovery Phrase
-      };
+        if (cancelled) return;
+        assetsRef.current = { bgImage, ufvkQrCanvas, addrQrCanvas };
+        setAssetsReady(true);
+      } catch (error) {
+        if (!cancelled) setFailed(true);
+      }
     };
+    prepare();
 
-    renderWallet();
+    return () => {
+      cancelled = true;
+    };
   }, [wallet]);
 
+  // Drawing is synchronous and runs in a layout effect. When a print job
+  // flips showSeed, the words are on the canvas before the browser takes the
+  // print snapshot, and they are wiped again as soon as it flips back.
+  useLayoutEffect(() => {
+    const assets = assetsRef.current;
+    if (!assetsReady || !assets) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    // Set canvas size to match the background image (this also clears it)
+    canvas.width = assets.bgImage.width;
+    canvas.height = assets.bgImage.height;
+
+    // Draw the background image
+    ctx.drawImage(assets.bgImage, 0, 0);
+
+    // Recovery phrase: only when asked, never by default
+    printRecoveryPhrase(ctx, wallet.seed, !showSeed);
+    printFrameNote(ctx, showSeed ? NO_SEED_QR_NOTE : SEED_HIDDEN_NOTE);
+
+    // Draw the QR code on the main canvas
+    ctx.drawImage(assets.ufvkQrCanvas, 95, 173); // UFVK
+    ctx.drawImage(assets.addrQrCanvas, 630, 191); // Unified Address
+
+    // Add text for wallet birthday
+    ctx.font = "32px Arial";
+    ctx.fillStyle = "#000"; // Black text
+    ctx.fillText(`${wallet.birthday}`, 1260, 995);
+  }, [assetsReady, showSeed, wallet]);
+
+  // Until the card is drawn there is only an empty canvas, and an empty
+  // canvas prints as a blank sheet. The text card carries the same wallet:
+  // it is what the printer gets while the template is on its way, and what
+  // the screen shows too once the template has failed. It also comes on
+  // screen when the phrase is asked for: the page then says the phrase is
+  // on screen, and that has to be true.
+  if (!assetsReady) {
+    const onScreen = failed || showSeed;
+    return (
+      <>
+        <p className="template-note">
+          {failed ? TEMPLATE_FAILED_NOTE : TEMPLATE_PENDING_NOTE}
+        </p>
+        <div className={onScreen ? undefined : "print-only"} data-testid="text-stand-in">
+          <WalletCard wallet={wallet} showSeed={showSeed} />
+          <div className="pagebreak"></div>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div className="paper-wallet-img">
+    <div className="paper-wallet-img" data-testid="image-card">
       <canvas ref={canvasRef}></canvas>
     </div>
   );

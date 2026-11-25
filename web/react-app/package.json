@@ -14,9 +14,12 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build:wasm": "rm -rf src/wasm && cd .. && wasm-pack build --target web --release --out-dir ./react-app/src/wasm  && rm -f ./react-app/src/wasm/.gitignore",
-    "build": "CI=false react-scripts build",
+    "build:wasm": "bash ../../scripts/build-wasm.sh",
+    "build": "react-scripts build",
+    "lint": "eslint src --ext .js --max-warnings 0",
     "test": "react-scripts test",
+    "test:e2e": "playwright test",
+    "test:scripts": "node --test ../../scripts/update-checkpoint.test.mjs ../../scripts/wasm-vectors.test.mjs",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -24,7 +27,18 @@
       "react-app",
       "react-app/jest"
     ],
-    "ignorePatterns": ["src/wasm/"]
+    "rules": {
+      "no-console": "error"
+    },
+    "ignorePatterns": [
+      "src/wasm/"
+    ]
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js",
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+    }
   },
   "browserslist": {
     "production": [
@@ -39,8 +53,12 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.12",
     "eslint": "^8.57.1",
-    "wasm-loader": "^1.3.0",
-    "wasm-pack": "^0.12.0"
+    "wasm-loader": "^1.3.0"
   }
 }

@@ -248,16 +248,8 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_getRandomValues_bcb4912f16000dc4 = function() { return handleError(function (arg0, arg1) {
         arg0.getRandomValues(arg1);
     }, arguments) };
-    imports.wbg.__wbg_getTime_ab8b72009983c537 = function(arg0) {
-        const ret = arg0.getTime();
-        return ret;
-    };
     imports.wbg.__wbg_msCrypto_0a36e2ec3a343d26 = function(arg0) {
         const ret = arg0.msCrypto;
-        return ret;
-    };
-    imports.wbg.__wbg_new0_55477545727914d9 = function() {
-        const ret = new Date();
         return ret;
     };
     imports.wbg.__wbg_new_3ff5b33b1ce712df = function(arg0) {

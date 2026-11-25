@@ -8,7 +8,19 @@
       }
     ],
     "routes": [
+      {
+        "src": "/(.*)",
+        "headers": {
+          "Content-Security-Policy": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY",
+          "Referrer-Policy": "no-referrer",
+          "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), display-capture=()",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin"
+        },
+        "continue": true
+      },
       { "src": "/(.*)", "dest": "web/react-app/build/$1" }
     ]
   }
-  

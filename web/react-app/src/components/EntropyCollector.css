@@ -31,7 +31,10 @@
     position: absolute;
     width: 16px;
     height: 16px;
-    /* background-color: rgba(0, 150, 255, 0.7); */
+    /* Small enough for the build to inline it in the stylesheet. Fetched
+       from the server, it was requested on the first pointer move, after
+       the page had loaded, and not at all once the network was off. */
+    background-image: url("./dot.png");
     border-radius: 50%;
     pointer-events: none;
     transform: translate(-50%, -50%);

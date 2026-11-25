@@ -36,8 +36,19 @@ const About = () => {
             <li>Once the entropy is collected, you will be redirected to your generated wallet.</li>
             <li>Choose between an <strong>image-based wallet</strong> or a <strong>text-only wallet</strong>.</li>
             <li>
-              You can either <strong>right-click</strong> on the wallet image and <strong>save it</strong>, or click the <strong>Print</strong> button 
-              to print your wallet (or save it as a PDF).
+              Click the <strong>Print</strong> button and <strong>print the wallet on paper</strong>, on a printer you trust.
+              The recovery phrase is hidden on screen and appears on the printed page.
+            </li>
+            <li>
+              Check that all 24 words are on the paper before you send any funds. If they are not, do not use that wallet.
+            </li>
+            <li>
+              Do not choose "Save as PDF", and do not save or screenshot the wallet image. A file that holds your
+              recovery phrase can be copied, synced to a cloud or read by other software.
+            </li>
+            <li>
+              No printer? Click <strong>Show recovery phrase</strong>, copy the 24 words by hand, check them,
+              then click <strong>Hide recovery phrase</strong>.
             </li>
           </ol>
         </section>
@@ -46,6 +57,7 @@ const About = () => {
           <h2>Security Considerations</h2>
           <ul>
             <li>Never share your <strong>seed phrase</strong> or <strong>private keys</strong> with anyone.</li>
+            <li>Never photograph or scan your recovery phrase, and never type it into a website.</li>
             <li>Store your printed wallet in a <strong>safe and secure place</strong>.</li>
             <li>Do not generate wallets on public or untrusted devices.</li>
           </ul>

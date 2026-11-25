@@ -1,10 +1,14 @@
+// Wallet data must never reach stdout, stderr or a debugger.
+#![deny(clippy::print_stdout, clippy::print_stderr, clippy::dbg_macro)]
+
 use paperwallet_lib::paper::PaperWallet;
 use serde::{Serialize, Deserialize};
 use wasm_bindgen::prelude::*;
 use sha2::{Sha256, Digest};
 
 // Paper wallet strruct to export to the web interface
-#[derive(Debug, Serialize, Deserialize)]
+// No Debug: this struct holds the recovery phrase.
+#[derive(Serialize, Deserialize)]
 pub struct WebPaperWallet {
     seed: String,
     address: String,
@@ -38,8 +42,6 @@ pub fn generate_wallet_from_entropy(entropy: &[u8]) -> JsValue {
         ufvk,
         birthday
     };
-
-    println!("{:#?}", web_wallet);
 
     serde_wasm_bindgen::to_value(&web_wallet).unwrap()
 }
@@ -81,7 +83,5 @@ mod tests {
         // Assertions to validate the wallet structure
         let rust_wallet = serde_wasm_bindgen::from_value::<WebPaperWallet>(wallet.clone()).unwrap();
         assert_eq!(rust_wallet.seed, "abandon amount liar amount expire adjust cage candy arch gather drum bullet absurd math era live bid rhythm alien crouch range attend journey unaware".to_string());
-
-        println!("Generated Wallet: {:?}", serde_wasm_bindgen::from_value::<WebPaperWallet>(wallet)); // Debug output
     }
 }
